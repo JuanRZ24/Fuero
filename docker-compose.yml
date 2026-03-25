@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: lexflow_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: lexflow_db
+      POSTGRES_USER: lexflow_admin
+      POSTGRES_PASSWORD: rootpassword123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+
+
