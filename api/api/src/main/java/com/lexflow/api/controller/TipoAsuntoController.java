@@ -1,13 +1,22 @@
 package com.lexflow.api.controller;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.lexflow.api.service.TipoAsuntoService;
+
+import com.lexflow.api.model.TipoAsunto;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/tipo-asunto")
 public class TipoAsuntoController {
 
-    private final TipoAsunto tipoAsuntoService;
+    private final TipoAsuntoService tipoAsuntoService;
 
-    public TipoAsuntoController(TipoAsunto tipoAsuntoService) {
+    public TipoAsuntoController(TipoAsuntoService tipoAsuntoService) {
         this.tipoAsuntoService = tipoAsuntoService;
     }
 

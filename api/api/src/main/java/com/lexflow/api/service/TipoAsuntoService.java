@@ -1,15 +1,16 @@
 package com.lexflow.api.service;
 
 import com.lexflow.api.repository.TipoAsuntoRepository;
+import com.lexflow.api.model.TipoAsunto;
 import org.springframework.stereotype.Service;
-
+import java.util.List;
 
 @Service
-public class TipoAsunto {
+public class TipoAsuntoService {
 
     private final TipoAsuntoRepository tipoAsuntoRepository;
 
-    public TipoAsunto(TipoAsuntoRepository tipoAsuntoRepository) {
+    public TipoAsuntoService(TipoAsuntoRepository tipoAsuntoRepository) {
         this.tipoAsuntoRepository = tipoAsuntoRepository;
     }
 
