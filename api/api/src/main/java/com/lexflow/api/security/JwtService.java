@@ -1,7 +1,9 @@
 package com.lexflow.api.security;
 
 import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.lexflow.api.model.Usuario;
 import org.springframework.stereotype.Service;
 
@@ -10,19 +12,32 @@ import java.util.Date;
 @Service
 public class JwtService {
 
-    // En un proyecto real y en producción, esta llave se esconde en las variables de entorno.
-    // Por ahora la dejamos aquí. ¡Debe ser una frase larga para que el algoritmo sea seguro!
     private static final String SECRET_KEY = "LexFlowSecretKeySuperSeguraYSuperLargaParaQueNoFalle";
-
+    
+    // Instanciamos el algoritmo una sola vez para reusarlo
+    private final Algorithm algorithm = Algorithm.HMAC256(SECRET_KEY);
+    
     public String generarToken(Usuario usuario) {
-        // Usamos el algoritmo HMAC256 para encriptar
-        Algorithm algorithm = Algorithm.HMAC256(SECRET_KEY);
-        
         return JWT.create()
-                .withSubject(usuario.getEmail()) // El "dueño" del token es el email
-                .withClaim("rol", usuario.getRol().name()) // Guardamos el rol (Admin, Proyectista, etc.)
-                .withIssuedAt(new Date()) // Fecha de creación
-                .withExpiresAt(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // Caduca en exactamente 24 horas
-                .sign(algorithm); // Lo firmamos con nuestra llave secreta
+                .withSubject(usuario.getEmail()) 
+                .withClaim("rol", usuario.getRol().name()) 
+                .withIssuedAt(new Date()) 
+                .withExpiresAt(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) 
+                .sign(algorithm); 
+    }
+
+    // ¡NUEVO! Método para leer el token y sacar el correo
+    public String extraerEmail(String token) {
+        try {
+            // El Verifier checa automáticamente la firma y la fecha de expiración
+            JWTVerifier verifier = JWT.require(algorithm).build();
+            DecodedJWT decodedJWT = verifier.verify(token);
+            
+            // Si llega hasta aquí, el token es 100% legítimo
+            return decodedJWT.getSubject(); 
+        } catch (Exception e) {
+            // Si el token expiró o es falso, devolvemos null para que Spring Security bloquee el acceso
+            return null; 
+        }
     }
 }

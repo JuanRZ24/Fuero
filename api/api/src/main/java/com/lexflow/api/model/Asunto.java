@@ -38,6 +38,8 @@ public class Asunto {
     @Column(name = "fecha_acto")
     private LocalDate fechaActo;
 
+    
+
     @Column(name = "fecha_limite_legal")
     private LocalDate fechaLimiteLegal;
 
@@ -47,6 +49,9 @@ public class Asunto {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @Column(name = "estado", length = 50)
+    private String estado = "ACTIVO";
 
 
 

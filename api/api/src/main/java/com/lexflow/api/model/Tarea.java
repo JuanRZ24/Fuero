@@ -33,6 +33,10 @@ public class Tarea {
     @JoinColumn(name = "usuario_asignado_id", nullable = false)
     private Usuario usuarioAsignado;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_creador_id", nullable = false)
+    private Usuario usuarioCreador;
+
     @Column(nullable = false)
     private String titulo;
 
