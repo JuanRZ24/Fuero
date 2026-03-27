@@ -2,7 +2,7 @@ package com.lexflow.api.service;
 
 import com.lexflow.api.model.Usuario;
 import org.springframework.stereotype.Service;
-
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.lexflow.api.repository.UsuarioRepository;
 
 import java.util.List;
@@ -13,10 +13,12 @@ public class UsuarioService {
     
 
     private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
 
-    public UsuarioService (UsuarioRepository usuarioRepository){
+   public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
 
@@ -29,7 +31,17 @@ public class UsuarioService {
         return usuarioRepository.findById(id);
     }
 
-    public Usuario guardar(Usuario usuario){
+    public Usuario guardar(Usuario usuario) {
+        
+        if (usuarioRepository.findByEmail(usuario.getEmail()).isPresent()) {
+            throw new RuntimeException("Error: Ya existe un usuario con este correo.");
+        }
+
+        
+        String passwordEncriptado = passwordEncoder.encode(usuario.getPasswordHash());
+        usuario.setPasswordHash(passwordEncriptado);
+
+        usuario.setActivo(true);
         return usuarioRepository.save(usuario);
     }
 
