@@ -43,6 +43,7 @@ public class ClienteController {
     }
 
     // POST: /api/clientes
+    
     @PostMapping
     public ResponseEntity<Cliente> crearCliente(@RequestBody Cliente cliente) {
         Cliente nuevoCliente = clienteService.guardar(cliente);
