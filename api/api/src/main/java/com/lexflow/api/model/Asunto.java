@@ -38,7 +38,9 @@ public class Asunto {
     @Column(name = "fecha_acto")
     private LocalDate fechaActo;
 
-    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "etapa_actual_id")
+    private EtapaProcesal etapaActual;
 
     @Column(name = "fecha_limite_legal")
     private LocalDate fechaLimiteLegal;
