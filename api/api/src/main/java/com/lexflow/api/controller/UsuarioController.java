@@ -1,5 +1,6 @@
 package com.lexflow.api.controller;
 
+import com.lexflow.api.model.RolUsuario;
 import com.lexflow.api.model.Usuario;
 import com.lexflow.api.service.UsuarioService; 
 import org.springframework.http.HttpStatus;
@@ -57,4 +58,13 @@ public class UsuarioController {
         }
         return ResponseEntity.notFound().build(); 
     }
+
+    // 🔥 NUEVO ENDPOINT PARA EL MODAL DE EQUIPO 🔥
+    @GetMapping("/rol/{rol}")
+    public ResponseEntity<List<Usuario>> obtenerPorRol(@PathVariable RolUsuario rol) {
+        // Ejemplo de uso desde React: /api/usuarios/rol/PROYECTISTA
+        return ResponseEntity.ok(usuarioService.obtenerPorRol(rol)); 
+    }
+
+    
 }

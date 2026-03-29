@@ -7,25 +7,38 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 import com.lexflow.api.model.Asunto;
+import com.lexflow.api.model.AsuntoUsuario;
+import com.lexflow.api.model.AsuntoUsuarioId;
 import com.lexflow.api.model.Cliente;
 import com.lexflow.api.model.TipoAsunto;
+import com.lexflow.api.model.Usuario;
 import com.lexflow.api.repository.AsuntoRepository;
+import com.lexflow.api.repository.AsuntoUsuarioRepository;
 import com.lexflow.api.repository.ClienteRepository;
 import com.lexflow.api.repository.TipoAsuntoRepository;
+import com.lexflow.api.repository.UsuarioRepository;
+
+import jakarta.transaction.Transactional;
 
 
 @Service
+
 public class AsuntoService {
     
 
     private final AsuntoRepository asuntoRepository;
     private final ClienteRepository clienteRepository;
+    private final UsuarioRepository usuarioRepository;
     private final TipoAsuntoRepository tipoAsuntoRepository;
+    private final AsuntoUsuarioRepository asuntoUsuarioRepository;
 
-    public AsuntoService (AsuntoRepository asuntoRepository, ClienteRepository clienteRepository, TipoAsuntoRepository tipoAsuntoRepository){
+    public AsuntoService (AsuntoRepository asuntoRepository, ClienteRepository clienteRepository, TipoAsuntoRepository tipoAsuntoRepository, UsuarioRepository usuarioRepository, AsuntoUsuarioRepository asuntoUsuarioRepository){
         this.asuntoRepository = asuntoRepository;
         this.clienteRepository = clienteRepository;
+        this.usuarioRepository = usuarioRepository;
+
         this.tipoAsuntoRepository = tipoAsuntoRepository;
+        this.asuntoUsuarioRepository = asuntoUsuarioRepository;
     }
 
 
@@ -73,5 +86,43 @@ public class AsuntoService {
         return true;
     }
 
+    @Transactional
+    public void agregarParticipante(Long asuntoId, Long usuarioId) {
+        
+        // 1. Validamos que el expediente y el usuario existan
+        Asunto asunto = asuntoRepository.findById(asuntoId)
+                .orElseThrow(() -> new RuntimeException("Expediente no encontrado con ID: " + asuntoId));
+
+        Usuario nuevoProyectista = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + usuarioId));
+
+        // 2. Revisamos que no esté ya asignado para evitar un error de llave duplicada
+        if (asuntoUsuarioRepository.existsById_AsuntoIdAndId_UsuarioId(asuntoId, usuarioId)) {
+            System.out.println("⚠️ El abogado ya estaba asignado a este expediente.");
+            return; // Salimos sin hacer nada
+        }
+
+        // 3. Creamos el ID Compuesto
+        AsuntoUsuarioId compositeId = new AsuntoUsuarioId(asuntoId, usuarioId);
+
+        // 4. Armamos la entidad pivote usando tu hermoso Builder
+        AsuntoUsuario nuevaRelacion = AsuntoUsuario.builder()
+                .id(compositeId)
+                .asunto(asunto)
+                .usuario(nuevoProyectista)
+                .esResponsable(false) // O la lógica que decidas
+                .build();
+
+        // 5. ¡Guardamos directo en la tabla pivote!
+        asuntoUsuarioRepository.save(nuevaRelacion);
+        
+        System.out.println("✅ Proyectista " + nuevoProyectista.getNombre() + " asignado al expediente " + asunto.getId());
+    }
+
+    public List<Usuario> obtenerEquipoLegal(Long asuntoId) {
+        return asuntoUsuarioRepository.findById_AsuntoId(asuntoId).stream()
+                .map(AsuntoUsuario::getUsuario)
+                .toList(); // En Java 16+ puedes usar .toList() en lugar de Collectors.toList()
+    }
 
 }

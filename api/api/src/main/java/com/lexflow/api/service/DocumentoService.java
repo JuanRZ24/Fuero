@@ -10,6 +10,8 @@ import java.util.List;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional; // 🔥 Importante
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -20,36 +22,63 @@ public class DocumentoService {
     private final UsuarioRepository usuarioRepository;
     private final GoogleDriveService googleDriveService;
     private final EtapaProcesalRepository etapaRepository;
+    private final MovimientoProcesalRepository movimientoRepository;
 
     // 1. Guardar metadatos y subir a Drive
+    @Transactional 
     public DocumentoDTO subirDocumento(MultipartFile archivo, Long asuntoId, Long etapaId, String desc) {
-    // Buscamos el asunto y el usuario (como ya lo hacías)
-    Asunto asunto = asuntoRepository.findById(asuntoId).orElseThrow();
-    String email = SecurityContextHolder.getContext().getAuthentication().getName();
-    Usuario creador = usuarioRepository.findByEmail(email).orElseThrow();
+        
+        // 1. Buscamos todo el contexto (como ya lo tenías)
+        Asunto asunto = asuntoRepository.findById(asuntoId).orElseThrow();
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Usuario creador = usuarioRepository.findByEmail(email).orElseThrow();
+        EtapaProcesal etapa = etapaRepository.findById(etapaId).orElseThrow();
 
-    // 🔥 BUSCAMOS LA ETAPA SELECCIONADA POR ERNESTO 🔥
-    EtapaProcesal etapa = etapaRepository.findById(etapaId).orElseThrow();
+        // 2. Subir a Drive
+        String[] driveData = googleDriveService.subirADrive(archivo);
 
-    // Subir a Drive (bypass)
-    String[] driveData = googleDriveService.subirADrive(archivo);
+        // 3. Guardar el Documento
+        Documento nuevoDoc = Documento.builder()
+                .nombre(archivo.getOriginalFilename())
+                .descripcion(desc)
+                .tipoMime(archivo.getContentType())
+                .tamano(archivo.getSize())
+                .googleDocId(driveData[0])
+                .googleDocUrl(driveData[1])
+                .asunto(asunto)
+                .creadoPor(creador)
+                .etapaVinculada(etapa)
+                .build();
 
-    // Creamos la entidad incluyendo la etapa_vinculada
-    Documento nuevoDoc = Documento.builder()
-            .nombre(archivo.getOriginalFilename())
-            .descripcion(desc)
-            .tipoMime(archivo.getContentType())
-            .tamano(archivo.getSize())
-            .googleDocId(driveData[0])
-            .googleDocUrl(driveData[1])
-            .asunto(asunto)
-              .creadoPor(creador)
-            .etapaVinculada(etapa) // 👈 AQUÍ SE LIGA AL "CAJÓN" CORRECTO
-            .build();
+        Documento docGuardado = documentoRepository.save(nuevoDoc);
 
-    Documento docGuardado = documentoRepository.save(nuevoDoc);
-    return mapToDTO(docGuardado);
-}
+        // ==========================================
+        // 🔥 4. LA MAGIA DEL TIMELINE AUTOMÁTICO 🔥
+        // ==========================================
+        
+        // Armamos un texto elegante para el abogado
+        String textoBitacora = String.format("Se adjuntó el documento: '%s' en la etapa de %s.", 
+                archivo.getOriginalFilename(), 
+                etapa.getNombre());
+        
+        // Si el usuario escribió una descripción extra, se la pegamos al log
+        if (desc != null && !desc.trim().isEmpty()) {
+            textoBitacora += " Notas adicionales: " + desc;
+        }
+
+        // Creamos el movimiento (Ajusta los nombres de los campos si tu entidad los tiene diferente)
+        MovimientoProcesal movimiento = MovimientoProcesal.builder()
+                .descripcion(textoBitacora)
+                .fechaMovimiento(LocalDateTime.now()) // O LocalDate.now() si tu campo es de solo fecha
+                .asunto(asunto)
+                .etapaVinculada(etapa)
+                .creadoPor(creador)
+                .build();
+
+        movimientoRepository.save(movimiento); // ¡Pum! Registrado en la historia.
+
+        return mapToDTO(docGuardado);
+    }
 
     public List<DocumentoDTO> obtenerTodos() {
         // 1. Buscamos todos los registros en la base de datos

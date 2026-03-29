@@ -1,5 +1,6 @@
 package com.lexflow.api.service;
 
+import com.lexflow.api.model.RolUsuario;
 import com.lexflow.api.model.Usuario;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -74,4 +75,9 @@ public class UsuarioService {
         return false;
     }
 
+
+    public List<Usuario> obtenerPorRol(RolUsuario rol) {
+        return usuarioRepository.findByRol(rol); 
+        // Nota: Si usas Enum, cambia el parámetro a Rol rol y pásale el Enum.
+    }
 }

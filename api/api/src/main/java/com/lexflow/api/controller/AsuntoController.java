@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.lexflow.api.model.Asunto;
+import com.lexflow.api.model.Usuario;
 import com.lexflow.api.service.AsuntoService;
 
 
@@ -65,6 +66,16 @@ public class AsuntoController {
         return ResponseEntity.notFound().build(); 
     }
 
+    @PostMapping("/{asuntoId}/participantes/{usuarioId}")
+public ResponseEntity<Void> agregarParticipante(@PathVariable Long asuntoId, @PathVariable Long usuarioId) {
+    asuntoService.agregarParticipante(asuntoId, usuarioId);
+    return ResponseEntity.ok().build();
+}
+
+@GetMapping("/{asuntoId}/participantes")
+    public ResponseEntity<List<Usuario>> obtenerEquipoLegal(@PathVariable Long asuntoId) {
+        return ResponseEntity.ok(asuntoService.obtenerEquipoLegal(asuntoId));
+    }
 
 
     
