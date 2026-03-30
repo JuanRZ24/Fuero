@@ -46,6 +46,7 @@ public class DocumentoService {
                 .googleDocId(driveData[0])
                 .googleDocUrl(driveData[1])
                 .asunto(asunto)
+                
                 .creadoPor(creador)
                 .etapaVinculada(etapa)
                 .build();
@@ -68,6 +69,7 @@ public class DocumentoService {
 
         // Creamos el movimiento (Ajusta los nombres de los campos si tu entidad los tiene diferente)
         MovimientoProcesal movimiento = MovimientoProcesal.builder()
+                .titulo("Carga de Documento") // 🔥 ¡ESTA ES LA LÍNEA QUE FALTABA! 🔥
                 .descripcion(textoBitacora)
                 .fechaMovimiento(LocalDateTime.now()) // O LocalDate.now() si tu campo es de solo fecha
                 .asunto(asunto)
