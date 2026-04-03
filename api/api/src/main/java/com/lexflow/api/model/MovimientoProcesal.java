@@ -6,6 +6,10 @@ import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.TenantId;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Entity
 @Table(name = "movimientos_procesales")
 @Data
@@ -17,6 +21,15 @@ public class MovimientoProcesal {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @TenantId
+    @Column(name = "despacho_id")
+    private Long despachoId;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "despacho_id", insertable = false, updatable = false)
+    private Despacho despacho;
 
     @Column(nullable = false)
     private String titulo; // Ej: "Notificación de Sentencia"

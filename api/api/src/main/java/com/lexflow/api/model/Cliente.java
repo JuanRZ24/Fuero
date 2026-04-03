@@ -1,5 +1,9 @@
 package com.lexflow.api.model;
 
+import org.hibernate.annotations.TenantId;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -15,8 +19,13 @@ public class Cliente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @TenantId
+    @Column(name = "despacho_id")
+    private Long despachoId;
+    
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "despacho_id")
+    @JsonIgnore
+    @JoinColumn(name = "despacho_id", insertable = false, updatable = false)
     private Despacho despacho;
 
     @Column(nullable = false)

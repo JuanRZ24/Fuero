@@ -32,7 +32,7 @@ public class DespachoController {
     }
 
 
-    @GetMapping
+    @GetMapping("/{id}")
     public ResponseEntity<Despacho> obtenerDespacho(@PathVariable Long id){
         return despachoService.obtenerDespacho(id)
                 .map(ResponseEntity::ok)

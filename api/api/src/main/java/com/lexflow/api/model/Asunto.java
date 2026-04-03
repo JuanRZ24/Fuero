@@ -5,6 +5,9 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.annotations.TenantId;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,8 +26,14 @@ public class Asunto {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    
+    @TenantId
+    @Column(name = "despacho_id")
+    private Long despachoId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "despacho_id")
+    @JoinColumn(name = "despacho_id", insertable = false, updatable = false)
+    @JsonIgnore
     private Despacho despacho;
  
     @ManyToOne(fetch = FetchType.LAZY)
