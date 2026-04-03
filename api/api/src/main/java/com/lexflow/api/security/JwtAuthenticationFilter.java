@@ -21,7 +21,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService; // Interfaz nativa de Spring para buscar usuarios
+    private final UserDetailsService userDetailsService;
 
     @Override
     protected void doFilterInternal(
@@ -33,33 +33,41 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 1. Buscamos la cabecera Authorization
         final String authHeader = request.getHeader("Authorization");
 
-        // 2. Si no hay token o no tiene el formato "Bearer ", lo ignoramos (luego Spring lo bloqueará)
+        // 2. Si no hay token o no tiene el formato "Bearer ", lo ignoramos
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 3. Extraemos el JWT (quitando los primeros 7 caracteres: "Bearer ")
+        // 3. Extraemos el JWT
         final String token = authHeader.substring(7);
-        final String userEmail = jwtService.extraerEmail(token); // Usamos el método que acabamos de crear
+        final String userEmail = jwtService.extraerEmail(token);
 
-        // 4. Si el token es válido (nos devolvió el email) y el usuario aún no está logueado en este request
+        // 4. Si el token es válido y el usuario aún no está logueado en este request
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             
-            // Buscamos al usuario en la base de datos usando Spring Security
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // 5. ¡LA LÍNEA MÁGICA! Le decimos a Spring Boot: "Este usuario entró con token legítimo"
             UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities()
             );
             authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             
-            // Lo guardamos en el contexto de seguridad para que tu TareaService pueda leerlo sin error 500
             SecurityContextHolder.getContext().setAuthentication(authToken);
+
+            // 🔥 LO NUEVO: Extraemos el despachoId del token y lo guardamos en la "cajita fuerte"
+            Long despachoId = jwtService.extraerDespachoId(token);
+            if (despachoId != null) {
+                TenantContext.setCurrentTenant(despachoId);
+            }
         }
         
-        // 6. Dejamos que la petición continúe hacia tu Controlador
-        filterChain.doFilter(request, response);
+        try {
+            // 6. Dejamos que la petición continúe hacia tu Controlador
+            filterChain.doFilter(request, response);
+        } finally {
+            
+            TenantContext.clear();
+        }
     }
 }

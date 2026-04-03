@@ -18,26 +18,43 @@ public class JwtService {
     private final Algorithm algorithm = Algorithm.HMAC256(SECRET_KEY);
     
     public String generarToken(Usuario usuario) {
-        return JWT.create()
+        // 1. Iniciamos la construcción del token
+        var jwtBuilder = JWT.create()
                 .withSubject(usuario.getEmail()) 
                 .withClaim("rol", usuario.getRol().name()) 
                 .withIssuedAt(new Date()) 
-                .withExpiresAt(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) 
-                .sign(algorithm); 
+                .withExpiresAt(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24));
+        
+        // 2. Inyectamos el despachoId de forma dinámica
+        if (usuario.getDespacho() != null) {
+            jwtBuilder.withClaim("despachoId", usuario.getDespacho().getId());
+        }
+
+        // 3. Firmamos y cerramos el token
+        return jwtBuilder.sign(algorithm); 
     }
 
-    // ¡NUEVO! Método para leer el token y sacar el correo
+    // Método para leer el token y sacar el correo
     public String extraerEmail(String token) {
         try {
-            // El Verifier checa automáticamente la firma y la fecha de expiración
+            JWTVerifier verifier = JWT.require(algorithm).build();
+            DecodedJWT decodedJWT = verifier.verify(token);
+            return decodedJWT.getSubject(); 
+        } catch (Exception e) {
+            return null; 
+        }
+    }
+
+    
+    public Long extraerDespachoId(String token) {
+        try {
             JWTVerifier verifier = JWT.require(algorithm).build();
             DecodedJWT decodedJWT = verifier.verify(token);
             
-            // Si llega hasta aquí, el token es 100% legítimo
-            return decodedJWT.getSubject(); 
+            // Extraemos el claim. Si no existe o es nulo, asLong() devolverá null.
+            return decodedJWT.getClaim("despachoId").asLong();
         } catch (Exception e) {
-            // Si el token expiró o es falso, devolvemos null para que Spring Security bloquee el acceso
-            return null; 
+            return null;
         }
     }
 }
