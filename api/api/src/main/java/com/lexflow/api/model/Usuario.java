@@ -24,6 +24,10 @@ public class Usuario implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "despacho_id")
+    private Despacho despacho;
+
     @Column(nullable = false)
     private String nombre;
 
