@@ -3,6 +3,8 @@ package com.lexflow.api.service;
 import com.lexflow.api.dto.DocumentoDTO;
 import com.lexflow.api.model.*;
 import com.lexflow.api.repository.*;
+import com.lexflow.api.security.TenantContext;
+
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
@@ -50,6 +52,7 @@ public class DocumentoService {
                 .creadoPor(creador)
                 .etapaVinculada(etapa)
                 .build();
+        nuevoDoc.setDespachoId(TenantContext.getCurrentTenant());
 
         Documento docGuardado = documentoRepository.save(nuevoDoc);
 

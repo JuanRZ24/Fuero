@@ -3,6 +3,7 @@ package com.lexflow.api.service;
 import org.springframework.stereotype.Service;
 
 import com.lexflow.api.repository.ClienteRepository;
+import com.lexflow.api.security.TenantContext;
 import com.lexflow.api.model.Cliente;
 
 
@@ -30,6 +31,7 @@ public class ClienteService {
     }
 
     public Cliente guardar(Cliente cliente){
+        cliente.setDespachoId(TenantContext.getCurrentTenant());
         return clienteRepository.save(cliente);
     }
 

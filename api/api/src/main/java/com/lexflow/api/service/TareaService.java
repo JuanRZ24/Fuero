@@ -67,6 +67,7 @@ public class TareaService {
                 .usuarioCreador(creador)     
                 .usuarioAsignado(asignado)   
                 .build();
+        
 
         return tareaRepository.save(nuevaTarea);
     }

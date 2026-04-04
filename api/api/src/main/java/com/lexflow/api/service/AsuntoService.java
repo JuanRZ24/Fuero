@@ -17,6 +17,7 @@ import com.lexflow.api.repository.AsuntoUsuarioRepository;
 import com.lexflow.api.repository.ClienteRepository;
 import com.lexflow.api.repository.TipoAsuntoRepository;
 import com.lexflow.api.repository.UsuarioRepository;
+import com.lexflow.api.security.TenantContext;
 
 import jakarta.transaction.Transactional;
 
@@ -62,6 +63,7 @@ public class AsuntoService {
         // 3. Se los inyectamos al asunto original para que ya no estén en "null"
         asunto.setCliente(cliente);
         asunto.setTipoAsunto(tipo);
+        asunto.setDespachoId(TenantContext.getCurrentTenant());
 
         // 4. Guardamos y retornamos (ESTE return es el que le da el ID al Controller)
         return asuntoRepository.save(asunto);
