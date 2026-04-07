@@ -96,4 +96,13 @@ public class DocumentoService {
                 .nombreCreador(doc.getCreadoPor() != null ? doc.getCreadoPor().getEmail() : "Sistema")
                 .build();
     }
+
+
+
+    public String ObtenerUrlDescarga(Long id){
+        Documento documento = documentoRepository.findById(id)
+                    .orElseThrow(()-> new RuntimeException("Documento no encontrado"));
+        
+        return storageService.generarUrlTemporalDeDescarga(documento.getRutaArchivo());
+    }
 }

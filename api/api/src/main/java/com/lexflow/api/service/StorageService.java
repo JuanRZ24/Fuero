@@ -8,6 +8,11 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+import java.time.Duration;
 
 import java.io.IOException;
 
@@ -16,6 +21,7 @@ import java.io.IOException;
 public class StorageService {
 
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
 
     @Value("${cloud.aws.s3.bucket-name}")
     private String bucketName;
@@ -49,5 +55,26 @@ public class StorageService {
         } catch (IOException e) {
             throw new RuntimeException("Fallo al intentar subir el archivo a MinIO", e);
         }
+    }
+
+    public String generarUrlTemporalDeDescarga(String rutaArchivoEnMinio) {
+        
+        // 1. Decimos qué archivo queremos
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(rutaArchivoEnMinio)
+                .build();
+
+        // 2. Configuramos las reglas del "Boleto VIP" (ej. Válido por 15 minutos)
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(15))
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        // 3. Firmamos criptográficamente la petición
+        PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+
+        // 4. Devolvemos la URL lista para que el navegador la use
+        return presignedRequest.url().toString();
     }
 }

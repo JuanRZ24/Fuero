@@ -5,6 +5,7 @@ import com.lexflow.api.service.DocumentoService;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -54,4 +55,17 @@ public class DocumentoController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @GetMapping("/{id}/descargar")
+    public ResponseEntity<Map<String, String>> obtenerUrlDescarga(@PathVariable Long id) {
+        try {
+            String url = documentoService.ObtenerUrlDescarga(id);
+            // Devolvemos un JSON limpio con la URL
+            return ResponseEntity.ok(Map.of("url", url));
+        } catch (Exception e) {
+            System.err.println("❌ Error al generar URL: " + e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
+
 }
