@@ -7,13 +7,13 @@ import com.lexflow.api.security.TenantContext;
 
 import lombok.RequiredArgsConstructor;
 
-import java.util.List;
-
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.transaction.annotation.Transactional; // 🔥 Importante
+
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -21,98 +21,79 @@ public class DocumentoService {
 
     private final DocumentoRepository documentoRepository;
     private final AsuntoRepository asuntoRepository;
+    private final EtapaProcesalRepository etapaProcesalRepository;
     private final UsuarioRepository usuarioRepository;
-    private final GoogleDriveService googleDriveService;
-    private final EtapaProcesalRepository etapaRepository;
-    private final MovimientoProcesalRepository movimientoRepository;
 
-    // 1. Guardar metadatos y subir a Drive
-    @Transactional 
-    public DocumentoDTO subirDocumento(MultipartFile archivo, Long asuntoId, Long etapaId, String desc) {
+    
+    // 🔥 CAMBIO 1: Adiós Google Drive, Hola MinIO (S3)
+    private final StorageService storageService;
+
+   // 1. Guardar metadatos y subir a MinIO
+    @Transactional
+    public DocumentoDTO crearYSubirDocumento(Long asuntoId, Long etapaId, MultipartFile archivo, String descripcion) {
         
-        // 1. Buscamos todo el contexto (como ya lo tenías)
-        Asunto asunto = asuntoRepository.findById(asuntoId).orElseThrow();
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        Usuario creador = usuarioRepository.findByEmail(email).orElseThrow();
-        EtapaProcesal etapa = etapaRepository.findById(etapaId).orElseThrow();
+        // 1. Validamos que el asunto exista y pertenezca al despacho actual 
+        Asunto asunto = asuntoRepository.findById(asuntoId)
+                .orElseThrow(() -> new RuntimeException("Asunto no encontrado o no pertenece a este despacho"));
 
-        // 2. Subir a Drive
-        String[] driveData = googleDriveService.subirADrive(archivo);
+        String emailAutenticado = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        // 3. Guardar el Documento
-        Documento nuevoDoc = Documento.builder()
-                .nombre(archivo.getOriginalFilename())
-                .descripcion(desc)
-                .tipoMime(archivo.getContentType())
-                .tamano(archivo.getSize())
-                .googleDocId(driveData[0])
-                .googleDocUrl(driveData[1])
+        // Lo buscamos en la base de datos (ya tienes el usuarioRepository inyectado)
+        Usuario usuarioLogueado = usuarioRepository.findByEmail(emailAutenticado)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado en el sistema"));
+
+        // 2. Validamos que la etapa procesal exista
+        EtapaProcesal etapa = etapaProcesalRepository.findById(etapaId)
+                .orElseThrow(() -> new RuntimeException("Etapa procesal no encontrada"));
+
+        // 3. Subimos el archivo físico a MinIO
+        String rutaEnMinio = storageService.subirArchivo(archivo, asuntoId);
+
+        // 4. Creamos el registro en la base de datos
+        Documento nuevoDocumento = Documento.builder()
+                .nombre(archivo.getOriginalFilename()) // Usamos el nombre original por defecto
+                .descripcion(descripcion)              // 🔥 Pasamos la descripción
+                .rutaArchivo(rutaEnMinio)
+                .fechaSubida(LocalDateTime.now())
                 .asunto(asunto)
-                
-                .creadoPor(creador)
-                .etapaVinculada(etapa)
-                .build();
-        nuevoDoc.setDespachoId(TenantContext.getCurrentTenant());
-
-        Documento docGuardado = documentoRepository.save(nuevoDoc);
-
-        // ==========================================
-        // 🔥 4. LA MAGIA DEL TIMELINE AUTOMÁTICO 🔥
-        // ==========================================
-        
-        // Armamos un texto elegante para el abogado
-        String textoBitacora = String.format("Se adjuntó el documento: '%s' en la etapa de %s.", 
-                archivo.getOriginalFilename(), 
-                etapa.getNombre());
-        
-        // Si el usuario escribió una descripción extra, se la pegamos al log
-        if (desc != null && !desc.trim().isEmpty()) {
-            textoBitacora += " Notas adicionales: " + desc;
-        }
-
-        // Creamos el movimiento (Ajusta los nombres de los campos si tu entidad los tiene diferente)
-        MovimientoProcesal movimiento = MovimientoProcesal.builder()
-                .titulo("Carga de Documento") // 🔥 ¡ESTA ES LA LÍNEA QUE FALTABA! 🔥
-                .descripcion(textoBitacora)
-                .fechaMovimiento(LocalDateTime.now()) // O LocalDate.now() si tu campo es de solo fecha
-                .asunto(asunto)
-                .etapaVinculada(etapa)
-                .creadoPor(creador)
+                .etapaVinculada(etapa)                  // 🔥 Lo vinculamos a su etapa
+                .despachoId(TenantContext.getCurrentTenant()) // Candado Multi-tenant
+                .creadoPor(usuarioLogueado)
                 .build();
 
-        movimientoRepository.save(movimiento); // ¡Pum! Registrado en la historia.
-
-        return mapToDTO(docGuardado);
+        // 5. Guardamos en PostgreSQL
+        Documento documentoGuardado = documentoRepository.save(nuevoDocumento);
+        
+        // 6. Convertimos la entidad guardada a DTO para regresarla al Frontend
+        return mapToDTO(documentoGuardado);
     }
 
     public List<DocumentoDTO> obtenerTodos() {
-        // 1. Buscamos todos los registros en la base de datos
         List<Documento> documentos = documentoRepository.findAll();
-        
-        // 2. Usamos Streams de Java para convertir cada Documento a DTO mágicamente
         return documentos.stream()
-                .map(this::mapToDTO) // Llama a mapToDTO() por cada elemento de la lista
-                .toList();           // Lo vuelve a empaquetar en una lista nueva
+                .map(this::mapToDTO)
+                .toList();
     }
 
-    // 2. Obtener un documento por ID para el visualizador
     public DocumentoDTO obtenerPorId(Long id) {
         Documento doc = documentoRepository.findById(id).orElseThrow();
         return mapToDTO(doc);
     }
 
-    // Mapper manual (para no meter más librerías)
+    // 🔥 CAMBIO 2: Limpieza del DTO para la nueva arquitectura
     private DocumentoDTO mapToDTO(Documento doc) {
         return DocumentoDTO.builder()
                 .id(doc.getId())
                 .nombre(doc.getNombre())
                 .descripcion(doc.getDescripcion())
-                .googleDocId(doc.getGoogleDocId())
-                .googleDocUrl(doc.getGoogleDocUrl())
+                .rutaArchivo(doc.getRutaArchivo()) // 👈 Devolvemos la ruta de S3
+                // 💀 ESTOS YA ESTÁN MUERTOS, elimínalos también de tu DocumentoDTO
+                // .googleDocId(doc.getGoogleDocId()) 
+                // .googleDocUrl(doc.getGoogleDocUrl())
                 .estadoRevision(doc.getEstadoRevision())
                 .fechaSubida(doc.getFechaSubida())
                 .asuntoId(doc.getAsunto().getId())
-                .nombreCreador(doc.getCreadoPor().getEmail()) // O el nombre real si lo tienes
+                .nombreCreador(doc.getCreadoPor() != null ? doc.getCreadoPor().getEmail() : "Sistema")
                 .build();
     }
 }

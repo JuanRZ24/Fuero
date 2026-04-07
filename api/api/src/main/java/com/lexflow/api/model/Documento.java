@@ -47,13 +47,8 @@ public class Documento {
     @Column(name = "tamano")
     private Long tamano; // Tamaño en bytes
 
-    // --- INTEGRACIÓN CON GOOGLE DRIVE ---
-
-    @Column(name = "google_doc_id", unique = true)
-    private String googleDocId; // El ID que usaremos para el visualizador en React
-
-    @Column(name = "google_doc_url", length = 500)
-    private String googleDocUrl; // El link directo por si quieren abrirlo en otra pestaña
+   @Column(name = "ruta_archivo")
+private String rutaArchivo;
 
     // --- RELACIONES ---
 

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,19 +25,22 @@ public class DocumentoController {
         return ResponseEntity.ok(lista);
     }
 
-    // --- ACTUALIZADO: Ahora recibe etapaId ---
-    @PostMapping
+    // 🔥 Agregamos el consumes para forzar que acepte archivos (form-data)
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<DocumentoDTO> subir(
-            @RequestParam("archivo") MultipartFile archivo,
             @RequestParam("asuntoId") Long asuntoId,
-            @RequestParam("etapaId") Long etapaId, // 🔥 ¡EL NUEVO INVITADO!
-            @RequestParam(value = "descripcion", required = false) String desc) {
+            @RequestParam("etapaId") Long etapaId,
+            @RequestParam("archivo") MultipartFile archivo,
+            @RequestParam(value = "descripcion", required = false) String descripcion) {
         try {
-            // Pasamos el etapaId al servicio
-            DocumentoDTO dto = documentoService.subirDocumento(archivo, asuntoId, etapaId, desc);
+            // ✅ Ahora sí pasamos TODOS los parámetros al servicio en el orden correcto
+            DocumentoDTO dto = documentoService.crearYSubirDocumento(asuntoId, etapaId, archivo, descripcion);
+            
             return ResponseEntity.status(HttpStatus.CREATED).body(dto);
         } catch (Exception e) {
-            System.err.println("Error al subir documento: " + e.getMessage());
+            // Imprimimos el error real en la consola de tu servidor para no quedarnos ciegos
+            System.err.println("❌ Error al subir documento: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

@@ -1,0 +1,53 @@
+package com.lexflow.api.service;
+
+import com.lexflow.api.security.TenantContext;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
+import java.io.IOException;
+
+@Service
+@RequiredArgsConstructor
+public class StorageService {
+
+    private final S3Client s3Client;
+
+    @Value("${cloud.aws.s3.bucket-name}")
+    private String bucketName;
+
+    public String subirArchivo(MultipartFile archivo, Long asuntoId) {
+        // 1. Sacamos el ID del despacho logueado desde nuestra bóveda de seguridad
+        Long despachoId = TenantContext.getCurrentTenant();
+        
+        if (despachoId == null) {
+            throw new RuntimeException("Acceso denegado: No se detectó un despacho activo.");
+        }
+
+        // 2. Construimos la ruta mágica (Ej. "despacho_5/asunto_10/demanda.pdf")
+        String rutaArchivo = String.format("despacho_%d/asunto_%d/%s", 
+                despachoId, asuntoId, archivo.getOriginalFilename());
+
+        // 3. Preparamos el paquete para enviarlo a MinIO
+        try {
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(rutaArchivo)
+                    .contentType(archivo.getContentType())
+                    .build();
+
+            // 4. Lo subimos directamente desde la memoria RAM, sin tocar el disco de tu PC
+            s3Client.putObject(putObjectRequest, 
+                    RequestBody.fromInputStream(archivo.getInputStream(), archivo.getSize()));
+
+            return rutaArchivo; // Devolvemos la ruta para que la guardes en tu base de datos (Ej. tabla Documentos)
+            
+        } catch (IOException e) {
+            throw new RuntimeException("Fallo al intentar subir el archivo a MinIO", e);
+        }
+    }
+}
