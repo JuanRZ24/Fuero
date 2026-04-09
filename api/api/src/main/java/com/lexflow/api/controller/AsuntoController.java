@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.lexflow.api.dto.AsuntoDTO;
 import com.lexflow.api.model.Asunto;
 import com.lexflow.api.model.Usuario;
 import com.lexflow.api.service.AsuntoService;
@@ -44,9 +45,9 @@ public class AsuntoController {
 
 
     @PostMapping
-    public ResponseEntity<Asunto> guardarAsunto(@RequestBody Asunto nuevoAsunto){
-        asuntoService.guardarAsunto(nuevoAsunto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(nuevoAsunto);
+    public ResponseEntity<AsuntoDTO> crearAsunto(@RequestBody AsuntoDTO asuntoDTO) {
+        AsuntoDTO guardado = asuntoService.guardarAsunto(asuntoDTO);
+        return ResponseEntity.ok(guardado);
     }
 
 

@@ -7,6 +7,11 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.TenantId;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import java.util.Map;
+import java.util.HashMap;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
@@ -66,6 +71,10 @@ public class Asunto {
 
     @Column(name = "estado", length = 50)
     private String estado = "ACTIVO";
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "campos_dinamicos", columnDefinition = "jsonb")
+    private Map<String, Object> camposDinamicos = new HashMap<>();
 
 
 

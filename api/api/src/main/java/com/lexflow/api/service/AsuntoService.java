@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.lexflow.api.dto.AsuntoDTO;
 import com.lexflow.api.model.Asunto;
 import com.lexflow.api.model.AsuntoUsuario;
 import com.lexflow.api.model.AsuntoUsuarioId;
@@ -51,22 +52,35 @@ public class AsuntoService {
         return asuntoRepository.findById(id);
     }
 
-    public Asunto guardarAsunto(Asunto asunto) {
-        // 1. Buscamos al cliente completo en la BD usando el ID que nos mandaste
-        Cliente cliente = clienteRepository.findById(asunto.getCliente().getId())
+    public AsuntoDTO guardarAsunto(AsuntoDTO dto) {
+        // 1. Buscamos las relaciones usando los IDs que vienen del DTO
+        Cliente cliente = clienteRepository.findById(dto.getClienteId())
                 .orElseThrow(() -> new RuntimeException("Error: El cliente no existe"));
 
-        // 2. Buscamos el tipo de asunto completo
-        TipoAsunto tipo = tipoAsuntoRepository.findById(asunto.getTipoAsunto().getId())
+        TipoAsunto tipo = tipoAsuntoRepository.findById(dto.getTipoAsuntoId())
                 .orElseThrow(() -> new RuntimeException("Error: El tipo de asunto no existe"));
 
-        // 3. Se los inyectamos al asunto original para que ya no estén en "null"
-        asunto.setCliente(cliente);
-        asunto.setTipoAsunto(tipo);
-        asunto.setDespachoId(TenantContext.getCurrentTenant());
+        // 2. Construimos la Entidad nueva usando el Builder
+        Asunto nuevoAsunto = Asunto.builder()
+                .actoImpugnar(dto.getTitulo())
+                .cliente(cliente)
+                .tipoAsunto(tipo)
+                .camposDinamicos(dto.getCamposDinamicos()) // 🔥 Pasamos el JSON
+                .despachoId(TenantContext.getCurrentTenant()) // Candado de seguridad
+                
+                .build();
 
-        // 4. Guardamos y retornamos (ESTE return es el que le da el ID al Controller)
-        return asuntoRepository.save(asunto);
+        // 3. Guardamos en la Base de Datos
+        Asunto asuntoGuardado = asuntoRepository.save(nuevoAsunto);
+
+        // 4. Mapeamos la entidad guardada de vuelta a DTO para enviarla al Frontend
+        return AsuntoDTO.builder()
+                .id(asuntoGuardado.getId())
+                .titulo(asuntoGuardado.getActoImpugnar())
+                .clienteId(asuntoGuardado.getCliente().getId())
+                .tipoAsuntoId(asuntoGuardado.getTipoAsunto().getId())
+                .camposDinamicos(asuntoGuardado.getCamposDinamicos())
+                .build();
     }
 
     
