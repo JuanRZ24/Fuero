@@ -18,9 +18,9 @@ import com.lexflow.api.repository.AsuntoUsuarioRepository;
 import com.lexflow.api.repository.ClienteRepository;
 import com.lexflow.api.repository.TipoAsuntoRepository;
 import com.lexflow.api.repository.UsuarioRepository;
-import com.lexflow.api.security.TenantContext;
 
-import jakarta.transaction.Transactional;
+
+import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
@@ -48,8 +48,19 @@ public class AsuntoService {
         return asuntoRepository.findAll();
     }
 
-    public Optional<Asunto> obtenerAsunto(Long id){
-        return asuntoRepository.findById(id);
+    @Transactional(readOnly = true)
+    public AsuntoDTO obtenerAsuntoPorId(Long id) {
+        // Tu TenantResolver protege este findById automáticamente 🔥
+        Asunto asunto = asuntoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Error: El asunto no existe o no tienes permisos para verlo"));
+
+        return AsuntoDTO.builder()
+                .id(asunto.getId())
+                .titulo(asunto.getActoImpugnar()) // Usando el nombre que definiste antes
+                .clienteId(asunto.getCliente().getId())
+                .tipoAsuntoId(asunto.getTipoAsunto().getId())
+                .camposDinamicos(asunto.getCamposDinamicos()) // 📦 Aquí va tu JSON mágico intacto
+                .build();
     }
 
     public AsuntoDTO guardarAsunto(AsuntoDTO dto) {
@@ -66,7 +77,6 @@ public class AsuntoService {
                 .cliente(cliente)
                 .tipoAsunto(tipo)
                 .camposDinamicos(dto.getCamposDinamicos()) // 🔥 Pasamos el JSON
-                .despachoId(TenantContext.getCurrentTenant()) // Candado de seguridad
                 
                 .build();
 

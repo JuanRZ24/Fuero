@@ -37,16 +37,15 @@ public class AsuntoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Asunto> obtenerCliente(@PathVariable Long id){
-        return asuntoService.obtenerAsunto(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<AsuntoDTO> obtenerAsuntoPorId(@PathVariable Long id) {
+        AsuntoDTO asunto = asuntoService.obtenerAsuntoPorId(id);
+        return ResponseEntity.ok(asunto);
     }
 
 
     @PostMapping
-    public ResponseEntity<AsuntoDTO> crearAsunto(@RequestBody AsuntoDTO asuntoDTO) {
-        AsuntoDTO guardado = asuntoService.guardarAsunto(asuntoDTO);
+    public ResponseEntity<AsuntoDTO> crearAsunto(@RequestBody AsuntoDTO dto) {
+        AsuntoDTO guardado = asuntoService.guardarAsunto(dto);
         return ResponseEntity.ok(guardado);
     }
 

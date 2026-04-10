@@ -4,6 +4,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+
+import org.hibernate.annotations.TenantId;
 
 import java.util.Map;
 
@@ -22,7 +29,11 @@ public class AsuntoDTO {
     // IDs planos para las relaciones (¡Mucho más fácil para React!)
     private Long clienteId;
     private Long tipoAsuntoId;
-    
-    // 🔥 Nuestro cajón mágico
+
+    // 🔥 La magia para que PostgreSQL lo entienda como JSONB
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "campos_dinamicos", columnDefinition = "jsonb")
     private Map<String, Object> camposDinamicos;
+
+
 }

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -55,4 +56,21 @@ public class PlantillaService {
         dto.setId(plantillaGuardada.getId());
         return dto; 
     }
+
+
+
+    @Transactional(readOnly = true)
+public List<PlantillaDTO> obtenerPlantillasPorDespacho() {
+    
+    // Buscamos solo las que pertenecen al despacho logueado
+    return plantillaRepository.findAll().stream()
+        .map(p -> PlantillaDTO.builder()
+            .id(p.getId())
+            .nombre(p.getNombre())
+            .descripcion(p.getDescripcion())
+            // Si solo es para el listado, podrías no mandar los campos aquí
+            // para que la respuesta sea más ligera (Fase 1 del abogado)
+            .build())
+        .collect(Collectors.toList());
+}
 }

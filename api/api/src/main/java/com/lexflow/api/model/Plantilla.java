@@ -13,6 +13,8 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+import org.hibernate.annotations.TenantId;
+
 @Entity
 @Data
 @Builder
@@ -27,6 +29,7 @@ public class Plantilla {
     private String descripcion;
     
     // El candado para que el administrador de Culiacán no vea las del de Mazatlán
+    @TenantId
     private Long despachoId; 
 
     @OneToMany(mappedBy = "plantilla", cascade = CascadeType.ALL, orphanRemoval = true)
