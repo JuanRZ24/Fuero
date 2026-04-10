@@ -8,9 +8,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
 
-import org.hibernate.annotations.TenantId;
 
 import java.util.Map;
 
