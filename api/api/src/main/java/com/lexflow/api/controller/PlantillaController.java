@@ -1,6 +1,5 @@
 package com.lexflow.api.controller;
 
-import com.lexflow.api.model.Plantilla;
 import com.lexflow.api.dto.PlantillaDTO;
 import com.lexflow.api.service.PlantillaService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
