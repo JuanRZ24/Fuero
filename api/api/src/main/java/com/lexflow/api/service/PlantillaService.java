@@ -73,4 +73,33 @@ public List<PlantillaDTO> obtenerPlantillasPorDespacho() {
             .build())
         .collect(Collectors.toList());
 }
+
+@Transactional(readOnly = true)
+    public PlantillaDTO obtenerPorId(Long id) {
+        Plantilla plantilla = plantillaRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Plantilla no encontrada"));
+
+        // Usamos un método mapeador directo (Mucho más fácil de leer para Java)
+        List<CampoPlantillaDTO> camposDTO = plantilla.getCampos().stream()
+                .map(this::convertirACampoDTO)
+                .collect(Collectors.toList());
+
+        return PlantillaDTO.builder()
+                .id(plantilla.getId())
+                .nombre(plantilla.getNombre())
+                .descripcion(plantilla.getDescripcion())
+                .campos(camposDTO) 
+                .build();
+    }
+
+    // Método auxiliar (agrégalo abajo en el mismo archivo Service)
+    private CampoPlantillaDTO convertirACampoDTO(CampoPlantilla c) {
+        return CampoPlantillaDTO.builder()
+                .id(c.getId())
+                .nombreLabel(c.getNombreLabel())
+                .nombreKey(c.getNombreKey())
+                // OJO AQUÍ: Si getTipo() devuelve un String, quítale el .name()
+                .tipo(c.getTipo()) 
+                .build();
+    }
 }

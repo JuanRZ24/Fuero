@@ -3,6 +3,8 @@ package com.lexflow.api.repository;
 import com.lexflow.api.model.RolUsuario;
 import com.lexflow.api.model.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -15,5 +17,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByEmail(String email);
 
     List<Usuario> findByRol(RolUsuario rol);
+
+    @Query(value = "SELECT * FROM usuarios WHERE email = :email AND deleted_at IS NULL", nativeQuery = true)
+    Optional<Usuario> findByEmailParaLogin(@Param("email") String email);
     
 }

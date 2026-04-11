@@ -69,14 +69,12 @@ public class AuthService {
         // puedes llamar a tu método crearRefreshTokenParaUsuario(admin) y agregarlo aquí.
         .build();
     }
-
-    public AuthResponse login(LoginRequest request) {
-        // 1. Buscamos al usuario por correo
-        Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
+public AuthResponse login(LoginRequest request) {
+        // 🔥 LA SOLUCIÓN: Usamos el método nativo que esquiva el TenantId
+        Usuario usuario = usuarioRepository.findByEmailParaLogin(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Error: Credenciales incorrectas."));
 
         // 2. Comparamos la contraseña de texto plano con el Hash de la base de datos
-        // OJO: Si tu método en la entidad se llama getPassword(), cámbialo aquí.
         if (!passwordEncoder.matches(request.getPassword(), usuario.getPassword())) {
             throw new RuntimeException("Error: Credenciales incorrectas.");
         }
@@ -94,6 +92,7 @@ public class AuthService {
                 .rol(usuario.getRol().name())
                 .build();
     }
+   
 
     private RefreshToken crearRefreshTokenParaUsuario(Usuario usuario) {
         

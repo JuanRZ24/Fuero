@@ -6,9 +6,14 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+import org.hibernate.annotations.TenantId;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+
 
 @Entity
 @Table(name = "usuarios")
@@ -24,8 +29,15 @@ public class Usuario implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+
+    @TenantId
+    @Column(name = "despacho_id")
+    private Long despachoId;
+
+    // ✅ 2. La relación JPA: Esta es SOLO PARA LEER (usuario.getDespacho().getNombre())
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "despacho_id")
+    @JoinColumn(name = "despacho_id", insertable = false, updatable = false)
+    @JsonIgnore
     private Despacho despacho;
 
     @Column(nullable = false)
