@@ -28,8 +28,8 @@ public class TareaController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Tarea> ObtenerTarea(@PathVariable Long Id){
-        return tareaService.obtenerTarea(Id)
+    public ResponseEntity<Tarea> obtenerTarea(@PathVariable Long id){
+        return tareaService.obtenerTarea(id)
                     .map(ResponseEntity::ok)
                     .orElse(ResponseEntity.notFound().build());
     }
