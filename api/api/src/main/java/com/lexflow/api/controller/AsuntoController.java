@@ -30,8 +30,8 @@ public class AsuntoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Asunto>> listarAsuntos(){
-        List<Asunto> asuntos = asuntoService.obtenerTodos();
+    public ResponseEntity<List<AsuntoDTO>> listarAsuntos(){
+        List<AsuntoDTO> asuntos = asuntoService.obtenerTodos();
         return ResponseEntity.ok(asuntos);
     }
 
@@ -59,7 +59,7 @@ public class AsuntoController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarCliente(@PathVariable Long id) {
-        if (asuntoService.eliminar(id)) {
+        if (asuntoService.eliminarAsunto(id)) {
             return ResponseEntity.noContent().build(); // Devuelve 204 No Content si fue exitoso
         }
         return ResponseEntity.notFound().build(); 

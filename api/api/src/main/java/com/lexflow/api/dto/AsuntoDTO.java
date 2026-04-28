@@ -1,14 +1,10 @@
 package com.lexflow.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
-import jakarta.persistence.Column;
-
 
 import java.util.Map;
 
@@ -18,20 +14,25 @@ import java.util.Map;
 @AllArgsConstructor
 public class AsuntoDTO {
     
-    private Long id; // Lo usamos cuando devolvemos la info al frontend
-    
-    private String titulo;
-    
+    private Long id;
+    private String actoImpugnar;
     private String descripcion;
     
-    // IDs planos para las relaciones (¡Mucho más fácil para React!)
+    // 🔥 MAGIA JACKSON 1: Este se ignora al guardar, pero se envía al leer (GET)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private ClienteDTO cliente;
+    
+    // 🔥 MAGIA JACKSON 2: Este se ignora al leer, pero se acepta al guardar (POST/PUT)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private Long clienteId;
+    
+    // 🔥 Lo que enviamos a React (GET)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private TipoAsuntoDTO tipoAsunto;
+    
+    // 🔥 Lo que recibimos de React (POST/PUT)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private Long tipoAsuntoId;
 
-    // 🔥 La magia para que PostgreSQL lo entienda como JSONB
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "campos_dinamicos", columnDefinition = "jsonb")
     private Map<String, Object> camposDinamicos;
-
-
 }

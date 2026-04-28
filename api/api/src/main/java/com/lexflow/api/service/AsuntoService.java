@@ -7,6 +7,8 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 import com.lexflow.api.dto.AsuntoDTO;
+import com.lexflow.api.dto.ClienteDTO;
+import com.lexflow.api.dto.TipoAsuntoDTO;
 import com.lexflow.api.model.Asunto;
 import com.lexflow.api.model.AsuntoUsuario;
 import com.lexflow.api.model.AsuntoUsuarioId;
@@ -16,9 +18,10 @@ import com.lexflow.api.model.Usuario;
 import com.lexflow.api.repository.AsuntoRepository;
 import com.lexflow.api.repository.AsuntoUsuarioRepository;
 import com.lexflow.api.repository.ClienteRepository;
+import com.lexflow.api.repository.TareaRepository;
 import com.lexflow.api.repository.TipoAsuntoRepository;
 import com.lexflow.api.repository.UsuarioRepository;
-
+import com.lexflow.api.repository.VencimientoRepository;
 
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,64 +36,93 @@ public class AsuntoService {
     private final UsuarioRepository usuarioRepository;
     private final TipoAsuntoRepository tipoAsuntoRepository;
     private final AsuntoUsuarioRepository asuntoUsuarioRepository;
+    private final VencimientoRepository vencimientoRepository;
+    private final TareaRepository tareaRepository;
 
-    public AsuntoService (AsuntoRepository asuntoRepository, ClienteRepository clienteRepository, TipoAsuntoRepository tipoAsuntoRepository, UsuarioRepository usuarioRepository, AsuntoUsuarioRepository asuntoUsuarioRepository){
+    public AsuntoService (AsuntoRepository asuntoRepository,TareaRepository tareaRepository, ClienteRepository clienteRepository,VencimientoRepository vencimientoRepository, TipoAsuntoRepository tipoAsuntoRepository, UsuarioRepository usuarioRepository, AsuntoUsuarioRepository asuntoUsuarioRepository){
         this.asuntoRepository = asuntoRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
-
+        this.vencimientoRepository = vencimientoRepository;
         this.tipoAsuntoRepository = tipoAsuntoRepository;
         this.asuntoUsuarioRepository = asuntoUsuarioRepository;
+        this.tareaRepository = tareaRepository;
     }
 
 
-    public List<Asunto> obtenerTodos (){
-        return asuntoRepository.findAll();
+    private AsuntoDTO mapearA_DTO(Asunto asunto) {
+        ClienteDTO clienteDTO = null;
+        if (asunto.getCliente() != null) {
+            clienteDTO = ClienteDTO.builder()
+                    .id(asunto.getCliente().getId())
+                    .nombre(asunto.getCliente().getNombre())
+                    .email(asunto.getCliente().getEmail())
+                    .telefono(asunto.getCliente().getTelefono())
+                    .build();
+        }
+
+        TipoAsuntoDTO tipoDTO = null;
+        if (asunto.getTipoAsunto() != null) {
+            tipoDTO = TipoAsuntoDTO.builder()
+                    .id(asunto.getTipoAsunto().getId())
+                    .nombre(asunto.getTipoAsunto().getNombre())
+                    .build();
+        }
+
+        return AsuntoDTO.builder()
+                .id(asunto.getId())
+                .actoImpugnar(asunto.getActoImpugnar())
+                .cliente(clienteDTO) // Jackson sabrá que este es para el GET
+                // No hace falta setear el clienteId aquí porque es WRITE_ONLY
+                .tipoAsunto(tipoDTO)
+                .camposDinamicos(asunto.getCamposDinamicos())
+                .build();
+    }
+
+    // ==========================================
+    // TUS MÉTODOS DEL SERVICIO ACTUALIZADOS
+    // ==========================================
+
+    @Transactional(readOnly = true)
+    public List<AsuntoDTO> obtenerTodos() {
+        // Obtenemos las entidades, las convertimos a DTO con nuestro helper y las devolvemos como lista
+        return asuntoRepository.findAll().stream()
+                .map(this::mapearA_DTO)
+                .toList(); // Si usas Java 16+, toList() es válido. Si es Java antiguo: collect(Collectors.toList())
     }
 
     @Transactional(readOnly = true)
     public AsuntoDTO obtenerAsuntoPorId(Long id) {
-        // Tu TenantResolver protege este findById automáticamente 🔥
         Asunto asunto = asuntoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Error: El asunto no existe o no tienes permisos para verlo"));
 
-        return AsuntoDTO.builder()
-                .id(asunto.getId())
-                .titulo(asunto.getActoImpugnar()) // Usando el nombre que definiste antes
-                .clienteId(asunto.getCliente().getId())
-                .tipoAsuntoId(asunto.getTipoAsunto().getId())
-                .camposDinamicos(asunto.getCamposDinamicos()) // 📦 Aquí va tu JSON mágico intacto
-                .build();
+        // Reutilizamos el helper
+        return mapearA_DTO(asunto);
     }
 
+    @Transactional
     public AsuntoDTO guardarAsunto(AsuntoDTO dto) {
-        // 1. Buscamos las relaciones usando los IDs que vienen del DTO
+        // 🔥 Usamos directamente dto.getClienteId() que Jackson nos mapeó
+        if (dto.getClienteId() == null) {
+            throw new RuntimeException("Error: El clienteId es obligatorio");
+        }
+
         Cliente cliente = clienteRepository.findById(dto.getClienteId())
                 .orElseThrow(() -> new RuntimeException("Error: El cliente no existe"));
 
         TipoAsunto tipo = tipoAsuntoRepository.findById(dto.getTipoAsuntoId())
                 .orElseThrow(() -> new RuntimeException("Error: El tipo de asunto no existe"));
 
-        // 2. Construimos la Entidad nueva usando el Builder
         Asunto nuevoAsunto = Asunto.builder()
-                .actoImpugnar(dto.getTitulo())
+                .actoImpugnar(dto.getActoImpugnar())
                 .cliente(cliente)
                 .tipoAsunto(tipo)
-                .camposDinamicos(dto.getCamposDinamicos()) // 🔥 Pasamos el JSON
-                
+                .camposDinamicos(dto.getCamposDinamicos())
                 .build();
 
-        // 3. Guardamos en la Base de Datos
         Asunto asuntoGuardado = asuntoRepository.save(nuevoAsunto);
 
-        // 4. Mapeamos la entidad guardada de vuelta a DTO para enviarla al Frontend
-        return AsuntoDTO.builder()
-                .id(asuntoGuardado.getId())
-                .titulo(asuntoGuardado.getActoImpugnar())
-                .clienteId(asuntoGuardado.getCliente().getId())
-                .tipoAsuntoId(asuntoGuardado.getTipoAsunto().getId())
-                .camposDinamicos(asuntoGuardado.getCamposDinamicos())
-                .build();
+        return mapearA_DTO(asuntoGuardado);
     }
 
     
@@ -107,8 +139,19 @@ public class AsuntoService {
         });
     }
 
-    public boolean eliminar (Long id){
-        asuntoRepository.deleteById(id);
+    @Transactional // IMPORTANTE: Para que si algo falla, no se borre a medias
+    public boolean eliminarAsunto(Long id) {
+        Asunto asunto = asuntoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Asunto no encontrado"));
+
+        // 1. Matamos a los hijos primero (Se borrarán físicamente o con soft-delete si también lo tienen configurado)
+        vencimientoRepository.deleteByAsuntoId(id);
+
+        tareaRepository.deleteByAsuntoId(id);
+
+        // 2. Matamos al padre (Se le aplicará el UPDATE de tu Soft Delete)
+        asuntoRepository.delete(asunto);
+
         return true;
     }
 

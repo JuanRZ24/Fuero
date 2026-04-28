@@ -16,4 +16,6 @@ public interface VencimientoRepository extends JpaRepository<Vencimiento, Long> 
     // Para el Dashboard: Traer los pendientes más urgentes de todo el despacho
     @Query("SELECT v FROM Vencimiento v WHERE v.completado = false ORDER BY v.fechaLimite ASC")
     List<Vencimiento> findPendientesProximos();
+
+    void deleteByAsuntoId(Long asuntoId);
 }
