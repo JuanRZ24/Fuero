@@ -50,10 +50,8 @@ public class AsuntoController {
 
 
     @PutMapping("/{id}")
-    public ResponseEntity<Asunto> actualizarCliente(@PathVariable Long id, @RequestBody Asunto asuntoActualizado) {
-        return asuntoService.actualizar(id, asuntoActualizado)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<AsuntoDTO> actualizarAsunto(@PathVariable Long id, @RequestBody AsuntoDTO dto) {
+        return ResponseEntity.ok(asuntoService.actualizar(id, dto));
     }
 
 

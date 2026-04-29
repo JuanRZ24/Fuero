@@ -126,17 +126,38 @@ public class AsuntoService {
     }
 
     
-    public Optional <Asunto> actualizar(Long id, Asunto AsuntoActualizado){
-        return asuntoRepository.findById(id).map(AsuntoExistente -> {
-            
-            
-            if (AsuntoActualizado.getActoImpugnar() != null){
-                AsuntoExistente.setActoImpugnar(AsuntoActualizado.getActoImpugnar());
-            }
+    @Transactional
+    public AsuntoDTO actualizar(Long id, AsuntoDTO dtoActualizado) {
+        // 1. Buscamos el caso original
+        Asunto asuntoExistente = asuntoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Error: Asunto no encontrado"));
 
-            
-            return asuntoRepository.save(AsuntoExistente); 
-        });
+        // 2. Actualizamos los campos si vienen en el JSON
+        if (dtoActualizado.getActoImpugnar() != null) {
+            asuntoExistente.setActoImpugnar(dtoActualizado.getActoImpugnar());
+        }
+        
+        // Nota: Si pusiste "estado" en tu AsuntoDTO, agrégalo aquí también
+        // if (dtoActualizado.getEstado() != null) {
+        //     asuntoExistente.setEstado(dtoActualizado.getEstado());
+        // }
+
+        // 3. Actualizamos las relaciones (usando los IDs planos de la magia de Jackson)
+        if (dtoActualizado.getClienteId() != null) {
+            Cliente cliente = clienteRepository.findById(dtoActualizado.getClienteId())
+                    .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+            asuntoExistente.setCliente(cliente);
+        }
+
+        if (dtoActualizado.getTipoAsuntoId() != null) {
+            TipoAsunto tipo = tipoAsuntoRepository.findById(dtoActualizado.getTipoAsuntoId())
+                    .orElseThrow(() -> new RuntimeException("Tipo de Asunto no encontrado"));
+            asuntoExistente.setTipoAsunto(tipo);
+        }
+
+        // 4. Guardamos y devolvemos convertido a DTO
+        Asunto asuntoGuardado = asuntoRepository.save(asuntoExistente);
+        return mapearA_DTO(asuntoGuardado);
     }
 
     @Transactional // IMPORTANTE: Para que si algo falla, no se borre a medias
