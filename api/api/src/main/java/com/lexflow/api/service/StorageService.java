@@ -2,12 +2,15 @@ package com.lexflow.api.service;
 
 import com.lexflow.api.security.TenantContext;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -18,6 +21,7 @@ import java.io.IOException;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class StorageService {
 
     private final S3Client s3Client;
@@ -76,5 +80,25 @@ public class StorageService {
 
         // 4. Devolvemos la URL lista para que el navegador la use
         return presignedRequest.url().toString();
+    }
+
+
+    public void borrarArchivo(String rutaArchivo) {
+        try {
+            log.info("Intentando eliminar objeto del bucket: {} con llave: {}", bucketName, rutaArchivo);
+            
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(rutaArchivo)
+                    .build();
+
+            s3Client.deleteObject(deleteObjectRequest);
+            
+            log.info("Archivo eliminado correctamente de MinIO: {}", rutaArchivo);
+        } catch (Exception e) {
+            // Aquí lanzamos una excepción personalizada o logueamos el error crítico
+            log.error("Error al eliminar archivo en MinIO: {}", rutaArchivo, e);
+            throw new RuntimeException("No se pudo eliminar el archivo físico del storage", e);
+        }
     }
 }

@@ -1,44 +1,87 @@
-# Lexflow Backend - Reporte de Calidad del Sistema
+# Lexflow Backend - Análisis de Sistema y Plan de Mejoras
 
-Este documento resume el análisis de calidad de código, arquitectura, seguridad y prácticas de desarrollo del repositorio **Lexflow-backend**.
+Este documento presenta un análisis de las funcionalidades actuales, la arquitectura y las áreas que requieren mejoras, tanto a nivel de nuevas características como de calidad de código y seguridad para el proyecto **Lexflow Backend**.
 
-## 1. Arquitectura y Patrones de Diseño (🟢 Bien estructurado)
+## 🚀 Funcionalidades Actuales
+El sistema es una plataforma de gestión jurídica estructurada en capas (Controller, Service, Repository, Model, DTO) y cuenta con las siguientes características clave:
+1. **Seguridad y Autenticación:** Basada en JWT con soporte para Refresh Tokens.
+2. **Gestión de Asuntos y Clientes:** CRUD de expedientes legales y perfiles de clientes.
+3. **Seguimiento Procesal:** Etapas y movimientos procesales de cada caso.
+4. **Gestión de Tareas:** Asignaciones de tareas vinculadas a asuntos.
+5. **Gestión de Documentos:** Carga y administración de estados de documentos (S3/Google Drive).
+6. **Multi-Tenancy:** Separación de datos por despacho (`TenantId`), permitiendo su uso como SaaS.
 
-*   **Arquitectura de Capas:** El proyecto presenta una excelente separación de responsabilidades. El código está estructurado lógicamente en paquetes:
-    *   `controller`: Controladores web (REST).
-    *   `service`: Lógica de negocio.
-    *   `repository`: Acceso a datos utilizando Spring Data JPA.
-    *   `model`: Entidades de dominio.
-    *   `dto`: Objetos de transferencia de datos (Data Transfer Objects).
-*   **Borrado Lógico (Soft Delete):** Se ha implementado el borrado lógico a nivel de entidad de forma eficiente y nativa utilizando anotaciones de Hibernate (`@SQLDelete` y `@SQLRestriction` / `@Where`). Esto es una excelente práctica para evitar la pérdida accidental de datos históricos y mantener la integridad referencial.
-*   **Uso de DTOs:** La presencia del paquete `dto` demuestra la buena práctica de no exponer directamente las entidades de base de datos en las respuestas HTTP, protegiendo así la estructura interna de la aplicación y controlando la información que se envía al cliente.
+---
 
-## 2. Calidad del Código (🟡 Con margen de mejora)
+## 🔍 Auditoría de Código Avanzada (Transacciones y Lógica) (NUEVO)
 
-*   **Eficiencia con Lombok:** Existe un uso extensivo y correcto de la librería Lombok (`@Data`, `@Builder`, `@RequiredArgsConstructor`, etc.). Esto contribuye significativamente a mantener el código limpio, conciso y libre de *boilerplate* (como getters, setters y constructores repetitivos).
-*   **Inconsistencia en el Idioma:** Se observa una mezcla de español e inglés en el nombrado de clases, métodos y variables (por ejemplo, el uso de métodos como `obtenerTodos` en servicios con nombres en inglés o configuraciones mixtas). Para proyectos escalables y mantenibles a largo plazo, se recomienda estandarizar todo el código (nombres, comentarios, commits) en inglés.
-*   **Manejo de Excepciones:** Actualmente, la lógica de negocio depende en gran medida del lanzamiento de excepciones genéricas (`RuntimeException`) con mensajes de texto plano.
-    *   *Sugerencia de Mejora:* Es fundamental implementar un manejo global de errores centralizado utilizando `@ControllerAdvice`. Además, se deben crear excepciones de negocio personalizadas (ej. `RecursoNoEncontradoException`, `OperacionInvalidaException`) para devolver respuestas HTTP consistentes y estructuradas (con los códigos de estado adecuados como 404, 400, etc.).
-*   **Mapeo Manual:** El mapeo de datos entre Entidades (Models) y DTOs parece realizarse de forma manual mediante *setters* en los servicios. A medida que el modelo de dominio crezca, esto se volverá tedioso, repetitivo y propenso a errores. Sería altamente recomendable introducir una librería de mapeo automático como **MapStruct**.
+Tras una revisión profunda (línea por línea) del código fuente en los Servicios críticos y Filtros de Seguridad, se encontraron graves errores lógicos y de manejo de transacciones:
 
-## 3. Seguridad (🟠 Requiere atención inmediata)
+1. **Riesgo en Transacciones Distribuidas (DocumentoService)**
+   - **Problema:** En el método `crearYSubirDocumento`, primero se sube el archivo a MinIO (`storageService.subirArchivo`) y *después* se guarda la entidad en PostgreSQL.
+   - **Riesgo:** Si falla el guardado en la base de datos (por ejemplo, porque un campo es nulo o excede el tamaño), la transacción de base de datos hace *rollback*, pero el archivo físico ya fue subido a S3/MinIO, quedando "huérfano" para siempre, generando costos de almacenamiento basura.
+   - **Solución:** Implementar un patrón de compensación (Saga/Outbox) o, como mínimo, capturar la excepción de la BD y mandar a borrar el archivo en S3 antes de lanzar el error hacia arriba.
 
-*   **Autenticación Sólida (JWT):** El sistema utiliza JSON Web Tokens (JWT) para implementar una autenticación sin estado (stateless). Esta es la práctica estándar e ideal para APIs RESTful. Además, incluye soporte para tokens de refresco (`RefreshToken`), lo cual mejora la seguridad de las sesiones prolongadas.
-*   **CORS y CSRF:** La configuración de CORS parece estar adecuadamente ajustada para permitir solicitudes desde un frontend local (puerto 5173, típico de entornos de desarrollo con Vite/React/Vue). La protección CSRF está correctamente deshabilitada, lo cual es el comportamiento esperado y seguro cuando se utiliza autenticación basada en tokens JWT.
-*   **🚨 Riesgo Crítico (Secreto Hardcodeado):** En la clase `JwtService` (`api/api/src/main/java/com/lexflow/api/security/JwtService.java`), la clave secreta (`SECRET_KEY`) utilizada para firmar criptográficamente los tokens JWT está escrita directamente en el código fuente (hardcodeada). Esto representa una **vulnerabilidad crítica de seguridad**.
-    *   *Solución Inmediata:* Esta clave debe ser eliminada del código fuente inmediatamente. Debe ser externalizada y leída desde el archivo de configuración `application.properties` o, preferiblemente, desde variables de entorno del sistema operativo (`System.getenv()`) en el entorno de despliegue.
+2. **Ausencia de Transaccionalidad Crítica (AuthService)**
+   - **Problema:** El método `login(LoginRequest request)` no tiene la anotación `@Transactional`, pero realiza operaciones de escritura (`crearRefreshTokenParaUsuario` hace un `save()`).
+   - **Riesgo:** Si hay un error de concurrencia o la base de datos se satura después de actualizar el *Refresh Token*, la base de datos puede quedar en un estado inconsistente. Todas las operaciones mixtas de lectura/escritura deben ser transaccionales.
 
-## 4. Pruebas / Testing (🔴 Deficiente)
+3. **Borrado en Cascada Manual y Riesgoso (AsuntoService)**
+   - **Problema:** El método `eliminarAsunto(Long id)` borra dependencias manualmente (vencimientos y tareas) antes de borrar el Asunto.
+   - **Riesgo:** Esto es un anti-patrón de JPA. Obliga al desarrollador a recordar cada nueva tabla hija que se cree a futuro, provocando errores de restricción de llave foránea (Foreign Key) si se le olvida.
+   - **Solución:** Delegar esto a JPA usando `CascadeType.REMOVE` o, idealmente, la anotación `@SQLDelete` a nivel de Entidad junto a propiedades `onDelete="CASCADE"` en la base de datos.
 
-*   **Falta de Tests Automatizados:** A excepción de la clase base autogenerada por Spring Initializr (`ApiApplicationTests.java`), la base de código carece por completo de un conjunto de pruebas automatizadas. No se han detectado pruebas unitarias (utilizando *JUnit* y *Mockito* para aislar y probar los `Services`) ni pruebas de integración (utilizando *MockMvc* o *Testcontainers* para probar los flujos completos de los controladores a la base de datos).
-    *   *Riesgo:* En el estado actual, cualquier modificación, refactorización o adición de nuevas funcionalidades conlleva un riesgo altísimo de introducir regresiones (romper código existente que funcionaba correctamente) sin que el equipo de desarrollo se percate hasta que el error ocurra en un entorno de producción.
+4. **Excepciones Silenciadas en Seguridad (JwtAuthenticationFilter)**
+   - **Problema:** El filtro `doFilterInternal` atrapa las excepciones globales (try-catch genérico) y hace un simple `System.err.println()`, luego permite que la petición continúe hacia el controlador llamando a `filterChain.doFilter(request, response);`.
+   - **Riesgo:** Si un token está malformado o un usuario intenta inyectar un payload corrupto, en lugar de recibir un HTTP 401/403 inmediato y detener el flujo, la petición sigue viajando vacía hacia los controladores, donde fallará con un NullPointerException y devolverá un HTTP 500.
 
-## Conclusión General
+5. **Excepción de Lazy Initialization (AsuntoService)**
+   - **Problema:** El método `obtenerEquipoLegal` busca datos relacionales a través de `AsuntoUsuario::getUsuario` pero el método carece de `@Transactional(readOnly = true)`.
+   - **Riesgo:** Al no existir una transacción abierta, cuando JPA intente resolver el "Usuario" mapeado con `FetchType.LAZY` (proxy de Hibernate), lanzará un clásico `LazyInitializationException`, tirando abajo la petición.
 
-El sistema Lexflow-backend posee una **base técnica sólida e idiomática para una aplicación Spring Boot moderna**. Los cimientos arquitectónicos son correctos y el uso de librerías establecidas en el ecosistema Java es adecuado.
+---
 
-Sin embargo, para elevar el nivel del proyecto a un estándar de "alta calidad" adecuado para un entorno de producción seguro y mantenible, es **estrictamente necesario** abordar los siguientes puntos prioritarios:
+## 🏗️ Mejoras Necesarias: Arquitectura y Rendimiento JPA
 
-1.  **Seguridad (Prioridad Máxima):** Externalizar la `SECRET_KEY` de JWT fuera del código fuente.
-2.  **Robustez:** Implementar un manejador global de excepciones (`@ControllerAdvice`) para unificar las respuestas de error de la API.
-3.  **Calidad/Mantenibilidad:** Iniciar la creación de una suite de pruebas automatizadas, comenzando con pruebas unitarias para la lógica de negocio más crítica en la capa de Servicios.
+1. **Exposición Directa de Entidades (Fuga de Abstracción)**
+   - **Problema:** En varios Controladores y Servicios se están devolviendo directamente las Entidades JPA (`Cliente`, `Despacho`, `Usuario`, `Tarea`) en lugar de DTOs.
+   - **Riesgo:** Exponer entidades revela la base de datos al cliente y puede provocar ciclos infinitos de serialización JSON.
+
+2. **Rendimiento de Base de Datos (Problema N+1 y FetchTypes)**
+   - **Problema:** Existen relaciones que carecen del parámetro explícito de fetch y pueden estar usando `EAGER` fetching por defecto o causando problemas de `N+1 select`.
+
+3. **Validación de Datos (DTOs)**
+   - **Problema:** Las peticiones (ej. `RegistroDespachoRequest`, `LoginRequest`) no usan `spring-boot-starter-validation` (`@NotBlank`, `@Email`, etc.).
+
+4. **Mapeo Automático de Entidades y DTOs**
+   - **Solución:** Implementar **MapStruct** para automatizar la conversión bidireccional.
+
+5. **Manejo Centralizado de Excepciones**
+   - **Solución:** Implementar un `@RestControllerAdvice` para devolver siempre un JSON estandarizado con el código HTTP correspondiente.
+
+---
+
+## 💻 Mejoras Necesarias: Calidad de Código
+
+1. **Implementación de Pruebas Automatizadas (Testing)**
+   - Iniciar suite con **JUnit 5** y **Mockito** para Servicios.
+2. **Estandarización del Idioma (Evitar Spanglish)**
+   - Migrar todo el código fuente al **inglés**.
+3. **Corrección de Dependencias (POM.xml)**
+   - Ajustar `spring-boot-starter-parent` a la versión `3.4.1` (actualmente está en `4.0.4`, que no existe).
+4. **Sistema de Logs Estructurado**
+   - Utilizar `@Slf4j` y evitar `System.out.println()`.
+
+---
+
+## 🛡️ Mejoras Necesarias: Seguridad (Prioridad Crítica)
+
+1. **Gestión de Secretos y Credenciales**
+   - **Problema:** Contraseñas de Base de Datos, S3, y la `SECRET_KEY` escritas en texto plano.
+   - **Solución Inmediata:** Usar variables de entorno y rotar contraseñas comprometidas.
+
+2. **Configuración de CORS Insegura**
+   - **Problema:** Existen controladores que utilizan `@CrossOrigin(origins = "*")` sobrescribiendo la seguridad global.
+
+3. **Vulnerabilidad XSS en Entrega de Tokens JWT**
+   - **Solución:** Configurar el backend para enviar el *Refresh Token* obligatoriamente a través de una cookie `HttpOnly` y `Secure`.

@@ -11,12 +11,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import lombok.extern.slf4j.Slf4j; // Para los logs de consola
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DocumentoService {
 
     private final DocumentoRepository documentoRepository;
@@ -31,6 +33,8 @@ public class DocumentoService {
    // 1. Guardar metadatos y subir a MinIO
     @Transactional
     public DocumentoDTO crearYSubirDocumento(Long asuntoId, Long etapaId, MultipartFile archivo, String descripcion) {
+
+        String rutaEnMinio = storageService.subirArchivo(archivo, asuntoId);
         
         // 1. Validamos que el asunto exista y pertenezca al despacho actual 
         Asunto asunto = asuntoRepository.findById(asuntoId)
@@ -46,9 +50,8 @@ public class DocumentoService {
         EtapaProcesal etapa = etapaProcesalRepository.findById(etapaId)
                 .orElseThrow(() -> new RuntimeException("Etapa procesal no encontrada"));
 
-        // 3. Subimos el archivo físico a MinIO
-        String rutaEnMinio = storageService.subirArchivo(archivo, asuntoId);
-
+        try{
+            
         // 4. Creamos el registro en la base de datos
         Documento nuevoDocumento = Documento.builder()
                 .nombre(archivo.getOriginalFilename()) // Usamos el nombre original por defecto
@@ -61,11 +64,23 @@ public class DocumentoService {
                 .creadoPor(usuarioLogueado)
                 .build();
 
-        // 5. Guardamos en PostgreSQL
-        Documento documentoGuardado = documentoRepository.save(nuevoDocumento);
+                Documento documentoGuardado = documentoRepository.saveAndFlush(nuevoDocumento);
+
+                return mapToDTO(documentoGuardado);
+        } catch(Exception e){
+            log.error("Error al guardar en al base de datos. iniciando proceso de compensacion");
+            try{
+                storageService.borrarArchivo(rutaEnMinio);
+                log.info("Compensacion exitosa: archivo {} eliminado", rutaEnMinio);
+            }catch(Exception exmin){
+                log.error("🚨 ALERTA CRÍTICA: Falló la BD y la compensación de S3. Archivo huérfano: {}", rutaEnMinio, exmin);
+            }
+            throw new RuntimeException("Error interno al procesar el documento. No se aplicaron cargos.", e);
+        }
+
         
-        // 6. Convertimos la entidad guardada a DTO para regresarla al Frontend
-        return mapToDTO(documentoGuardado);
+    
+    
     }
 
     public List<DocumentoDTO> obtenerTodos() {
