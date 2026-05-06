@@ -69,6 +69,8 @@ public class AuthService {
         // puedes llamar a tu método crearRefreshTokenParaUsuario(admin) y agregarlo aquí.
         .build();
     }
+
+@Transactional    
 public AuthResponse login(LoginRequest request) {
         // 🔥 LA SOLUCIÓN: Usamos el método nativo que esquiva el TenantId
         Usuario usuario = usuarioRepository.findByEmailParaLogin(request.getEmail())
