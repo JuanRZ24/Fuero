@@ -1,10 +1,17 @@
 package com.lexflow.api.security;
 
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SignatureException;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +25,7 @@ import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j // Agregamos Slf4j para logs profesionales en lugar de System.err
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
@@ -33,7 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 1. Buscamos la cabecera Authorization
         final String authHeader = request.getHeader("Authorization");
 
-        // 2. Si no hay token o no tiene el formato "Bearer ", lo ignoramos
+        // 2. Si NO hay token (puede ser un endpoint público como /login), dejamos que el filtro siga su curso normal
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -61,26 +69,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (despachoId != null) {
                     TenantContext.setCurrentTenant(despachoId);
                 } else {
-                    // Si el token es viejo y no trae despacho, lo mandamos al inquilino 0 por seguridad
                     TenantContext.setCurrentTenant(0L);
                 }
             }
-        } catch (Exception e) {
-            // 🔥 EL ESCUDO: Atrapamos cualquier explosión interna (ClassCastException, nulos, base de datos)
-            // Esto evitará que el backend falle en silencio y nos dirá la raíz del 403.
-            System.err.println("❌ ERROR FATAL EN EL FILTRO JWT: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-            e.printStackTrace();
             
-            // Limpiamos el contexto por seguridad si descubrimos un token corrupto
-            SecurityContextHolder.clearContext();
-        }
-        
-        try {
-            // 6. Dejamos que la petición continúe hacia tu Controlador
+            // 5. 🔥 EXITO: Solo si TODO salió perfecto y no hubo excepciones, dejamos pasar la petición al Controlador
             filterChain.doFilter(request, response);
+
+        } catch (ExpiredJwtException e) {
+            log.warn("🚨 Token expirado: {}", e.getMessage());
+            manejarErrorDeSeguridad(response, "El token de acceso ha expirado.", HttpStatus.UNAUTHORIZED);
+            
+        } catch (SignatureException | MalformedJwtException e) {
+            log.warn("🚨 Token corrupto o firma inválida: {}", e.getMessage());
+            manejarErrorDeSeguridad(response, "El token de acceso es inválido.", HttpStatus.UNAUTHORIZED);
+            
+        } catch (Exception e) {
+            // 6. 🔥 EL ESCUDO ACTIVO: Si el token está roto o falta un dato, atrapamos el error aquí.
+            // COMO NO LLAMAMOS A filterChain.doFilter() AQUÍ, LA PETICIÓN MUERE Y NUNCA LLEGA AL CONTROLADOR.
+            log.error("💥 Error fatal procesando el JWT", e);
+            manejarErrorDeSeguridad(response, "Error interno de autenticación.", HttpStatus.INTERNAL_SERVER_ERROR);
+            
         } finally {
-            // Siempre, pase lo que pase, vaciamos la cajita fuerte al terminar la petición
+            // 7. Pase lo que pase (éxito o error), siempre limpiamos la cajita fuerte de multi-tenant
             TenantContext.clear();
         }
+    }
+
+    /**
+     * Helper para construir una respuesta JSON bonita para React cuando falla la seguridad.
+     */
+    private void manejarErrorDeSeguridad(HttpServletResponse response, String mensaje, HttpStatus status) throws IOException {
+        SecurityContextHolder.clearContext(); // Limpiamos rastros por seguridad
+        
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        
+        // Armamos un JSON a mano para no depender de ObjectMapper aquí
+        String jsonError = String.format("{\"error\": \"%s\", \"status\": %d}", mensaje, status.value());
+        response.getWriter().write(jsonError);
+        response.getWriter().flush();
     }
 }
