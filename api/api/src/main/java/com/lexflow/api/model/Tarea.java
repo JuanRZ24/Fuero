@@ -6,6 +6,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -26,6 +28,7 @@ public class Tarea {
     // Relación con el Asunto
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "asunto_id", nullable = false)
+    @JsonIgnore
     private Asunto asunto;
 
     // Relación con el Usuario (a quién se le asigna)

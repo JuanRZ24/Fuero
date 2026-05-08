@@ -12,6 +12,7 @@ import com.lexflow.api.model.Asunto;
 import com.lexflow.api.model.AsuntoUsuario;
 import com.lexflow.api.model.AsuntoUsuarioId;
 import com.lexflow.api.model.Cliente;
+import com.lexflow.api.model.Documento;
 import com.lexflow.api.model.TipoAsunto;
 import com.lexflow.api.model.Usuario;
 import com.lexflow.api.repository.AsuntoRepository;
@@ -21,12 +22,12 @@ import com.lexflow.api.repository.TareaRepository;
 import com.lexflow.api.repository.TipoAsuntoRepository;
 import com.lexflow.api.repository.UsuarioRepository;
 import com.lexflow.api.repository.VencimientoRepository;
-
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
-
+@Slf4j
 public class AsuntoService {
     
 
@@ -37,8 +38,9 @@ public class AsuntoService {
     private final AsuntoUsuarioRepository asuntoUsuarioRepository;
     private final VencimientoRepository vencimientoRepository;
     private final TareaRepository tareaRepository;
+    private final StorageService storageService;
 
-    public AsuntoService (AsuntoRepository asuntoRepository,TareaRepository tareaRepository, ClienteRepository clienteRepository,VencimientoRepository vencimientoRepository, TipoAsuntoRepository tipoAsuntoRepository, UsuarioRepository usuarioRepository, AsuntoUsuarioRepository asuntoUsuarioRepository){
+    public AsuntoService (AsuntoRepository asuntoRepository,TareaRepository tareaRepository, ClienteRepository clienteRepository,VencimientoRepository vencimientoRepository, TipoAsuntoRepository tipoAsuntoRepository, UsuarioRepository usuarioRepository, AsuntoUsuarioRepository asuntoUsuarioRepository,StorageService storageService){
         this.asuntoRepository = asuntoRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
@@ -46,6 +48,7 @@ public class AsuntoService {
         this.tipoAsuntoRepository = tipoAsuntoRepository;
         this.asuntoUsuarioRepository = asuntoUsuarioRepository;
         this.tareaRepository = tareaRepository;
+        this.storageService = storageService;
     }
 
 
@@ -159,17 +162,25 @@ public class AsuntoService {
         return mapearA_DTO(asuntoGuardado);
     }
 
-    @Transactional // IMPORTANTE: Para que si algo falla, no se borre a medias
+    @Transactional
     public boolean eliminarAsunto(Long id) {
         Asunto asunto = asuntoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Asunto no encontrado"));
 
-        // 1. Matamos a los hijos primero (Se borrarán físicamente o con soft-delete si también lo tienen configurado)
-        vencimientoRepository.deleteByAsuntoId(id);
+            if (asunto.getDocumentos() != null && !asunto.getDocumentos().isEmpty()) {
+            for (Documento doc : asunto.getDocumentos()) {
+                try {
+                    // Usamos el servicio infalible que creaste hace rato
+                    storageService.borrarArchivo(doc.getRutaArchivo());
+                } catch (Exception e) {
+                    // Solo logueamos el error, pero dejamos que el proceso siga 
+                    // para no bloquear el borrado del caso por culpa de 1 archivo
+                    log.error("Fallo al borrar archivo físico huérfano: {}", doc.getRutaArchivo());
+                }
+            }
+        }
 
-        tareaRepository.deleteByAsuntoId(id);
-
-        // 2. Matamos al padre (Se le aplicará el UPDATE de tu Soft Delete)
+        // JPA automáticamente va y borra (o aplica Soft Delete) a las tareas y vencimientos
         asuntoRepository.delete(asunto);
 
         return true;

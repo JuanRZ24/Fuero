@@ -10,7 +10,9 @@ import org.hibernate.annotations.TenantId;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -76,6 +78,18 @@ public class Asunto {
     @Column(name = "campos_dinamicos", columnDefinition = "jsonb")
     private Map<String, Object> camposDinamicos = new HashMap<>();
 
+
+    // Le decimos a JPA: "Si borro este Asunto por error, llévate también sus vencimientos"
+    @OneToMany(mappedBy = "asunto", cascade = CascadeType.REMOVE)
+    private List<Vencimiento> vencimientos = new ArrayList<>();
+
+    // "Y llévate también sus tareas"
+    @OneToMany(mappedBy = "asunto", cascade = CascadeType.REMOVE)
+    private List<Tarea> tareas = new ArrayList<>();
+
+    // "Llévate también los registros de documentos de la base de datos"
+    @OneToMany(mappedBy = "asunto", cascade = CascadeType.REMOVE)
+    private List<Documento> documentos = new ArrayList<>();
 
 
 }
