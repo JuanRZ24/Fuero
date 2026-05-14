@@ -20,50 +20,43 @@ public class UsuarioController {
         this.usuarioService = usuarioService;
     }
 
-    // GET: /api/usuarios
     @GetMapping
-    public ResponseEntity<List<Usuario>> listarUsuarios() {
-        List<Usuario> usuarios = usuarioService.obtenerTodos();
+    public ResponseEntity<List<Usuario>> getAllUsuarios() {
+        List<Usuario> usuarios = usuarioService.getAll();
         return ResponseEntity.ok(usuarios);
     }
 
-    // GET: /api/usuarios/{id}
     @GetMapping("/{id}")
-    public ResponseEntity<Usuario> obtenerUsuario(@PathVariable Long id) {
-        return usuarioService.obtenerPorId(id)
+    public ResponseEntity<Usuario> getUsuarioById(@PathVariable Long id) {
+        return usuarioService.getById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // POST: /api/usuarios
     @PostMapping
-    public ResponseEntity<Usuario> crearUsuario(@RequestBody Usuario usuario) {
-        Usuario nuevoUsuario = usuarioService.guardar(usuario);
+    public ResponseEntity<Usuario> createUsuario(@RequestBody Usuario usuario) {
+        Usuario nuevoUsuario = usuarioService.save(usuario);
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevoUsuario);
     }
 
-    // PUT: /api/usuarios/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Usuario> actualizarUsuario(@PathVariable Long id, @RequestBody Usuario usuarioActualizado) {
-        return usuarioService.actualizar(id, usuarioActualizado)
+    public ResponseEntity<Usuario> updateUsuario(@PathVariable Long id, @RequestBody Usuario usuarioActualizado) {
+        return usuarioService.update(id, usuarioActualizado)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // DELETE: /api/usuarios/{id}
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarUsuario(@PathVariable Long id) {
-        if (usuarioService.eliminar(id)) {
-            return ResponseEntity.noContent().build(); // Devuelve 204 No Content si fue exitoso
+    public ResponseEntity<Void> deleteUsuario(@PathVariable Long id) {
+        if (usuarioService.delete(id)) {
+            return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build(); 
     }
 
-    // 🔥 NUEVO ENDPOINT PARA EL MODAL DE EQUIPO 🔥
     @GetMapping("/rol/{rol}")
-    public ResponseEntity<List<Usuario>> obtenerPorRol(@PathVariable RolUsuario rol) {
-        // Ejemplo de uso desde React: /api/usuarios/rol/PROYECTISTA
-        return ResponseEntity.ok(usuarioService.obtenerPorRol(rol)); 
+    public ResponseEntity<List<Usuario>> getUsuariosByRole(@PathVariable RolUsuario rol) {
+        return ResponseEntity.ok(usuarioService.getByRole(rol)); 
     }
 
     

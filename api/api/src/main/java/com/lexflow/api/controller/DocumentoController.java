@@ -21,25 +21,22 @@ public class DocumentoController {
     private final DocumentoService documentoService;
 
     @GetMapping
-    public ResponseEntity<List<DocumentoDTO>> listarTodos() {
-        List<DocumentoDTO> lista = documentoService.obtenerTodos();
+    public ResponseEntity<List<DocumentoDTO>> getAllDocumentos() {
+        List<DocumentoDTO> lista = documentoService.getAll();
         return ResponseEntity.ok(lista);
     }
 
-    // 🔥 Agregamos el consumes para forzar que acepte archivos (form-data)
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<DocumentoDTO> subir(
+    public ResponseEntity<DocumentoDTO> uploadDocument(
             @RequestParam("asuntoId") Long asuntoId,
             @RequestParam("etapaId") Long etapaId,
             @RequestParam("archivo") MultipartFile archivo,
             @RequestParam(value = "descripcion", required = false) String descripcion) {
         try {
-            // ✅ Ahora sí pasamos TODOS los parámetros al servicio en el orden correcto
-            DocumentoDTO dto = documentoService.crearYSubirDocumento(asuntoId, etapaId, archivo, descripcion);
+            DocumentoDTO dto = documentoService.createAndUploadDocument(asuntoId, etapaId, archivo, descripcion);
             
             return ResponseEntity.status(HttpStatus.CREATED).body(dto);
         } catch (Exception e) {
-            // Imprimimos el error real en la consola de tu servidor para no quedarnos ciegos
             System.err.println("❌ Error al subir documento: " + e.getClass().getSimpleName() + " - " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -47,9 +44,9 @@ public class DocumentoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DocumentoDTO> ver(@PathVariable Long id) {
+    public ResponseEntity<DocumentoDTO> getDocumentById(@PathVariable Long id) {
         try {
-            DocumentoDTO dto = documentoService.obtenerPorId(id);
+            DocumentoDTO dto = documentoService.getById(id);
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
@@ -57,10 +54,9 @@ public class DocumentoController {
     }
 
     @GetMapping("/{id}/descargar")
-    public ResponseEntity<Map<String, String>> obtenerUrlDescarga(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> getDownloadUrl(@PathVariable Long id) {
         try {
-            String url = documentoService.ObtenerUrlDescarga(id);
-            // Devolvemos un JSON limpio con la URL
+            String url = documentoService.getDownloadUrl(id);
             return ResponseEntity.ok(Map.of("url", url));
         } catch (Exception e) {
             System.err.println("❌ Error al generar URL: " + e.getMessage());

@@ -23,8 +23,8 @@ public class ApplicationConfig {
     // 1. Le decimos a Spring cómo buscar a un usuario por su email
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> usuarioRepository.findByEmailParaLogin(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
+        return username -> usuarioRepository.findByEmailForLogin(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
     }
 
     // 2. El proveedor de autenticación (el que junta el UserDetailsService con el encriptador de contraseñas)

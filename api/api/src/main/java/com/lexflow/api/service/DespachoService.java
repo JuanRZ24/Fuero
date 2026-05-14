@@ -17,23 +17,16 @@ public class DespachoService {
 
 
 
-    public List<Despacho> obtenerTodos(){
+    public List<Despacho> getAll(){
         return despachoRepository.findAll();
     }
 
-    public Optional<Despacho> obtenerDespacho(Long id){
+    public Optional<Despacho> getDespacho(Long id){
             return despachoRepository.findById(id);
     }
 
-    public Despacho guardarDespacho(Despacho despacho){
+    public Despacho saveDespacho(Despacho despacho){
         return despachoRepository.save(despacho);
     }
-
-
-
-    
-
-    
-
 
 }

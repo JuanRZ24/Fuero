@@ -27,49 +27,37 @@ public class ClienteController {
         this.clienteService = clienteService;
     }
 
-    // GET: /api/usuarios
     @GetMapping
-    public ResponseEntity<List<Cliente>> listarUsuarios() {
-        List<Cliente> clientes = clienteService.obtenerTodos();
+    public ResponseEntity<List<Cliente>> getAllClientes() {
+        List<Cliente> clientes = clienteService.getAll();
         return ResponseEntity.ok(clientes);
     }
 
-
     @GetMapping("/{id}")
-    public ResponseEntity<Cliente> obtenerCliente(@PathVariable Long id){
-        return clienteService.obtenerPorId(id)
+    public ResponseEntity<Cliente> getClienteById(@PathVariable Long id){
+        return clienteService.getById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-
-    // POST: /api/clientes
     
     @PostMapping
-    public ResponseEntity<Cliente> crearCliente(@RequestBody Cliente cliente) {
-        Cliente nuevoCliente = clienteService.guardar(cliente);
+    public ResponseEntity<Cliente> createCliente(@RequestBody Cliente cliente) {
+        Cliente nuevoCliente = clienteService.save(cliente);
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevoCliente);
     }
 
-    // PUT: /api/usuarios/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Cliente> actualizarCliente(@PathVariable Long id, @RequestBody Cliente clienteActualizado) {
-        return clienteService.actualizar(id, clienteActualizado)
+    public ResponseEntity<Cliente> updateCliente(@PathVariable Long id, @RequestBody Cliente clienteActualizado) {
+        return clienteService.update(id, clienteActualizado)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // DELETE: /api/usuarios/{id}
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarCliente(@PathVariable Long id) {
-        if (clienteService.eliminar(id)) {
-            return ResponseEntity.noContent().build(); // Devuelve 204 No Content si fue exitoso
+    public ResponseEntity<Void> deleteCliente(@PathVariable Long id) {
+        if (clienteService.delete(id)) {
+            return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build(); 
     }
 }
-
-    
-
-
-
-

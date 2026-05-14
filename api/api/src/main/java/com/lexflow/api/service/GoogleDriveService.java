@@ -17,7 +17,6 @@ import java.util.Collections;
 @Service
 public class GoogleDriveService {
 
-    // 🔥 Spring inyecta automáticamente los valores desde application.properties 🔥
     @Value("${google.drive.client-id}")
     private String clientId;
 
@@ -45,13 +44,12 @@ public class GoogleDriveService {
                 .build();
     }
 
-    public String[] subirADrive(MultipartFile archivoActual) {
+    public String[] uploadToDrive(MultipartFile archivoActual) {
         try {
             Drive driveService = getDriveService();
 
             File fileMetadata = new File();
             fileMetadata.setName(archivoActual.getOriginalFilename());
-            // Usamos la variable inyectada para la carpeta
             fileMetadata.setParents(Collections.singletonList(folderId));
 
             InputStreamContent mediaContent = new InputStreamContent(

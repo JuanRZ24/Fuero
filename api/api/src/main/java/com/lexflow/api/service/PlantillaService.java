@@ -21,16 +21,14 @@ public class PlantillaService {
     private final PlantillaRepository plantillaRepository;
 
     @Transactional
-    public PlantillaDTO crearPlantilla(PlantillaDTO dto) {
+    public PlantillaDTO createPlantilla(PlantillaDTO dto) {
         
-        // 1. Creamos la cabecera de la plantilla
         Plantilla plantilla = Plantilla.builder()
                 .nombre(dto.getNombre())
                 .descripcion(dto.getDescripcion())
-                .despachoId(TenantContext.getCurrentTenant()) // ¡Candado de seguridad!
+                .despachoId(TenantContext.getCurrentTenant()) 
                 .build();
 
-        // 2. Convertimos los campos del DTO a Entidades y los enlazamos a la plantilla
         if (dto.getCampos() != null) {
             List<CampoPlantilla> campos = new java.util.ArrayList<>();
             
@@ -39,7 +37,7 @@ public class PlantillaService {
                         .nombreLabel(c.getNombreLabel())
                         .nombreKey(c.getNombreKey())
                         .tipo(c.getTipo())
-                        .requerido(c.isRequerido()) // 🚨 Si marca rojo aquí, cámbialo por c.getRequerido()
+                        .requerido(c.isRequerido()) 
                         .plantilla(plantilla)
                         .build();
                         
@@ -49,39 +47,33 @@ public class PlantillaService {
             plantilla.setCampos(campos);
         }
 
-        // 3. Guardamos todo de un solo golpe (gracias al CascadeType.ALL)
-        Plantilla plantillaGuardada = plantillaRepository.save(plantilla);
+        Plantilla savedPlantilla = plantillaRepository.save(plantilla);
 
-        // 4. Devolvemos el DTO con el ID autogenerado para confirmar
-        dto.setId(plantillaGuardada.getId());
+        dto.setId(savedPlantilla.getId());
         return dto; 
     }
 
 
 
     @Transactional(readOnly = true)
-public List<PlantillaDTO> obtenerPlantillasPorDespacho() {
+public List<PlantillaDTO> getPlantillasByDespacho() {
     
-    // Buscamos solo las que pertenecen al despacho logueado
     return plantillaRepository.findAll().stream()
         .map(p -> PlantillaDTO.builder()
             .id(p.getId())
             .nombre(p.getNombre())
             .descripcion(p.getDescripcion())
-            // Si solo es para el listado, podrías no mandar los campos aquí
-            // para que la respuesta sea más ligera (Fase 1 del abogado)
             .build())
         .collect(Collectors.toList());
 }
 
 @Transactional(readOnly = true)
-    public PlantillaDTO obtenerPorId(Long id) {
+    public PlantillaDTO getById(Long id) {
         Plantilla plantilla = plantillaRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Plantilla no encontrada"));
 
-        // Usamos un método mapeador directo (Mucho más fácil de leer para Java)
         List<CampoPlantillaDTO> camposDTO = plantilla.getCampos().stream()
-                .map(this::convertirACampoDTO)
+                .map(this::convertToCampoDTO)
                 .collect(Collectors.toList());
 
         return PlantillaDTO.builder()
@@ -92,13 +84,11 @@ public List<PlantillaDTO> obtenerPlantillasPorDespacho() {
                 .build();
     }
 
-    // Método auxiliar (agrégalo abajo en el mismo archivo Service)
-    private CampoPlantillaDTO convertirACampoDTO(CampoPlantilla c) {
+    private CampoPlantillaDTO convertToCampoDTO(CampoPlantilla c) {
         return CampoPlantillaDTO.builder()
                 .id(c.getId())
                 .nombreLabel(c.getNombreLabel())
                 .nombreKey(c.getNombreKey())
-                // OJO AQUÍ: Si getTipo() devuelve un String, quítale el .name()
                 .tipo(c.getTipo()) 
                 .build();
     }

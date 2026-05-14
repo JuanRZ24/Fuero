@@ -13,12 +13,11 @@ public class EtapaProcesalService {
 
     private final EtapaProcesalRepository etapaRepository;
 
-    public List<EtapaProcesal> obtenerTodas() {
+    public List<EtapaProcesal> getAll() {
         return etapaRepository.findAll();
     }
 
-    public List<EtapaProcesal> obtenerPorTipo(Long tipoId) {
-        // Filtramos la lista para devolver solo las del tipo de asunto correspondiente
+    public List<EtapaProcesal> getByType(Long tipoId) {
         return etapaRepository.findAll().stream()
                 .filter(e -> e.getTipoAsunto() != null && e.getTipoAsunto().getId().equals(tipoId))
                 .toList();

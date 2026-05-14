@@ -22,11 +22,10 @@ public class MovimientoProcesalService {
     private final UsuarioRepository usuarioRepository;
 
     @Transactional(readOnly = true)
-    public List<MovimientoProcesalDTO> obtenerHistorial(Long asuntoId) {
-        List<MovimientoProcesal> movimientos = movimientoRepository.findByAsuntoIdOrderByFechaMovimientoDesc(asuntoId);
+    public List<MovimientoProcesalDTO> getHistory(Long asuntoId) {
+        List<MovimientoProcesal> movements = movimientoRepository.findByAsuntoIdOrderByFechaMovimientoDesc(asuntoId);
         
-        // Mapeamos de Entidad a DTO
-        return movimientos.stream().map(mov -> MovimientoProcesalDTO.builder()
+        return movements.stream().map(mov -> MovimientoProcesalDTO.builder()
                 .id(mov.getId())
                 .titulo(mov.getTitulo())
                 .descripcion(mov.getDescripcion())
@@ -41,18 +40,18 @@ public class MovimientoProcesalService {
     }
 
     @Transactional
-    public void crearMovimiento(MovimientoProcesalDTO request, String emailUsuario) {
-        Usuario creador = usuarioRepository.findByEmail(emailUsuario).orElseThrow();
+    public void createMovement(MovimientoProcesalDTO request, String emailUsuario) {
+        Usuario creator = usuarioRepository.findByEmail(emailUsuario).orElseThrow();
         Asunto asunto = asuntoRepository.findById(request.getAsuntoId()).orElseThrow();
 
-        MovimientoProcesal nuevoMovimiento = MovimientoProcesal.builder()
+        MovimientoProcesal newMovement = MovimientoProcesal.builder()
                 .titulo(request.getTitulo())
                 .descripcion(request.getDescripcion())
                 .fechaVencimiento(request.getFechaVencimiento())
                 .asunto(asunto)
-                .creadoPor(creador)
+                .creadoPor(creator)
                 .build();
 
-        movimientoRepository.save(nuevoMovimiento);
+        movimientoRepository.save(newMovement);
     }
 }

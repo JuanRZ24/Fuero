@@ -14,16 +14,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EtapaProcesalController {
 
-    // 🔥 Ahora inyectamos el SERVICE, no el Repository
     private final EtapaProcesalService etapaService;
 
     @GetMapping
-    public ResponseEntity<List<EtapaProcesal>> obtenerTodas() {
-        return ResponseEntity.ok(etapaService.obtenerTodas());
+    public ResponseEntity<List<EtapaProcesal>> getAllEtapas() {
+        return ResponseEntity.ok(etapaService.getAll());
     }
 
     @GetMapping("/tipo-asunto/{tipoId}")
-    public ResponseEntity<List<EtapaProcesal>> obtenerPorTipo(@PathVariable Long tipoId) {
-        return ResponseEntity.ok(etapaService.obtenerPorTipo(tipoId));
+    public ResponseEntity<List<EtapaProcesal>> getEtapasByType(@PathVariable Long tipoId) {
+        return ResponseEntity.ok(etapaService.getByType(tipoId));
     }
 }

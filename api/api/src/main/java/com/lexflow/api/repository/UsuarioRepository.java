@@ -19,6 +19,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     List<Usuario> findByRol(RolUsuario rol);
 
     @Query(value = "SELECT * FROM usuarios WHERE email = :email AND deleted_at IS NULL", nativeQuery = true)
-    Optional<Usuario> findByEmailParaLogin(@Param("email") String email);
+    Optional<Usuario> findByEmailForLogin(@Param("email") String email);
     
 }

@@ -28,7 +28,7 @@ public class AuthController {
 
     @PostMapping("/registro")
     public ResponseEntity<AuthResponse> registrarDespacho(@RequestBody RegistroDespachoRequest request) {
-        AuthResponse response = authService.registrarNuevoDespacho(request);
+        AuthResponse response = authService.registerNewDespacho(request);
         return ResponseEntity.ok(response);
     }
 }

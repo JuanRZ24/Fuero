@@ -26,23 +26,23 @@ public class DespachoController {
 
 
     @GetMapping
-    public ResponseEntity<List<Despacho>> listarDespachos(){
-        List<Despacho> despachos = despachoService.obtenerTodos();
+    public ResponseEntity<List<Despacho>> getAllDespachos(){
+        List<Despacho> despachos = despachoService.getAll();
         return ResponseEntity.ok(despachos);
     }
 
 
     @GetMapping("/{id}")
-    public ResponseEntity<Despacho> obtenerDespacho(@PathVariable Long id){
-        return despachoService.obtenerDespacho(id)
+    public ResponseEntity<Despacho> getDespachoById(@PathVariable Long id){
+        return despachoService.getDespacho(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
 
     @PostMapping
-    public ResponseEntity<Despacho> guardarDespacho(@RequestBody Despacho nuevoDespacho){
-        despachoService.guardarDespacho(nuevoDespacho);
+    public ResponseEntity<Despacho> createDespacho(@RequestBody Despacho nuevoDespacho){
+        despachoService.saveDespacho(nuevoDespacho);
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevoDespacho);
     }
 }

@@ -23,22 +23,21 @@ public class TareaController {
 
 
     @GetMapping
-    public ResponseEntity<List<Tarea>> ObtenerTareas(){
-        return ResponseEntity.ok(tareaService.obtenerTareas());
+    public ResponseEntity<List<Tarea>> getAllTareas(){
+        return ResponseEntity.ok(tareaService.getTareas());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Tarea> obtenerTarea(@PathVariable Long id){
-        return tareaService.obtenerTarea(id)
+    public ResponseEntity<Tarea> getTareaById(@PathVariable Long id){
+        return tareaService.getTarea(id)
                     .map(ResponseEntity::ok)
                     .orElse(ResponseEntity.notFound().build());
     }
 
 
     @PostMapping
-    public ResponseEntity<Tarea> crearTarea(@RequestBody TareaRequestDTO request) {
-        // Le pasamos solo la petición, el servicio se encarga de averiguar quién es el jefe
-        Tarea tareaGuardada = tareaService.crearTarea(request);
+    public ResponseEntity<Tarea> createTarea(@RequestBody TareaRequestDTO request) {
+        Tarea tareaGuardada = tareaService.createTarea(request);
         return new ResponseEntity<>(tareaGuardada, HttpStatus.CREATED);
     }
 

@@ -17,19 +17,17 @@ public class MovimientoProcesalController {
 
     private final MovimientoProcesalService movimientoService;
 
-    // OBTENER EL HISTORIAL
     @GetMapping("/asunto/{asuntoId}")
-    public ResponseEntity<List<MovimientoProcesalDTO>> obtenerHistorial(@PathVariable Long asuntoId) {
-        return ResponseEntity.ok(movimientoService.obtenerHistorial(asuntoId));
+    public ResponseEntity<List<MovimientoProcesalDTO>> getHistory(@PathVariable Long asuntoId) {
+        return ResponseEntity.ok(movimientoService.getHistory(asuntoId));
     }
 
-    // CREAR NUEVO MOVIMIENTO
     @PostMapping
-    public ResponseEntity<Void> crearMovimiento(
+    public ResponseEntity<Void> createMovement(
             @RequestBody MovimientoProcesalDTO request,
             Principal principal 
     ) {
-        movimientoService.crearMovimiento(request, principal.getName());
+        movimientoService.createMovement(request, principal.getName());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }

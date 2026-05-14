@@ -32,47 +32,39 @@ public class TareaService {
 
 
 
-    public List<Tarea> obtenerTareas(){
+    public List<Tarea> getTareas(){
         return tareaRepository.findAll();
     }
 
-    public Optional<Tarea> obtenerTarea(Long id){
+    public Optional<Tarea> getTarea(Long id){
         return tareaRepository.findById(id);
     }
 
 
-  public Tarea crearTarea(TareaRequestDTO dto) {
-        
+  public Tarea createTarea(TareaRequestDTO dto) {
         
         Asunto asunto = asuntoRepository.findById(dto.getAsuntoId())
                 .orElseThrow(() -> new RuntimeException("Error: El asunto no existe."));
 
-       
-        String emailLogueado = SecurityContextHolder.getContext().getAuthentication().getName();
-        System.out.println("📢 ATENCIÓN: El token dice que el usuario es: [" + emailLogueado + "]");
+        String loggedEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        System.out.println("📢 ATENCIÓN: El token dice que el usuario es: [" + loggedEmail + "]");
         
-        Usuario creador = usuarioRepository.findByEmail(emailLogueado)
+        Usuario creator = usuarioRepository.findByEmail(loggedEmail)
                 .orElseThrow(() -> new RuntimeException("Error: Usuario creador no encontrado en la base de datos."));
 
-       
-        Usuario asignado = usuarioRepository.findById(dto.getUsuarioAsignadoId())
+        Usuario assigned = usuarioRepository.findById(dto.getUsuarioAsignadoId())
                 .orElseThrow(() -> new RuntimeException("Error: El usuario asignado no existe."));
 
-        // 5. Armamos la Tarea
-        Tarea nuevaTarea = Tarea.builder()
+        Tarea newTarea = Tarea.builder()
                 .titulo(dto.getTitulo())
                 .descripcion(dto.getDescripcion())
                 .fechaVencimiento(dto.getFechaLimite())
                 .asunto(asunto)
-                .usuarioCreador(creador)     
-                .usuarioAsignado(asignado)   
+                .usuarioCreador(creator)     
+                .usuarioAsignado(assigned)   
                 .build();
         
 
-        return tareaRepository.save(nuevaTarea);
+        return tareaRepository.save(newTarea);
     }
 }
-
-
-
-

@@ -52,7 +52,7 @@ public class AsuntoService {
     }
 
 
-    private AsuntoDTO mapearA_DTO(Asunto asunto) {
+    private AsuntoDTO mapToDTO(Asunto asunto) {
         ClienteDTO clienteDTO = null;
         if (asunto.getCliente() != null) {
             clienteDTO = ClienteDTO.builder()
@@ -63,9 +63,9 @@ public class AsuntoService {
                     .build();
         }
 
-        TipoAsuntoDTO tipoDTO = null;
+        TipoAsuntoDTO typeDTO = null;
         if (asunto.getTipoAsunto() != null) {
-            tipoDTO = TipoAsuntoDTO.builder()
+            typeDTO = TipoAsuntoDTO.builder()
                     .id(asunto.getTipoAsunto().getId())
                     .nombre(asunto.getTipoAsunto().getNombre())
                     .build();
@@ -74,155 +74,129 @@ public class AsuntoService {
         return AsuntoDTO.builder()
                 .id(asunto.getId())
                 .actoImpugnar(asunto.getActoImpugnar())
-                .cliente(clienteDTO) // Jackson sabrá que este es para el GET
-                // No hace falta setear el clienteId aquí porque es WRITE_ONLY
-                .tipoAsunto(tipoDTO)
+                .cliente(clienteDTO)
+                .tipoAsunto(typeDTO)
                 .camposDinamicos(asunto.getCamposDinamicos())
                 .build();
     }
 
-    // ==========================================
-    // TUS MÉTODOS DEL SERVICIO ACTUALIZADOS
-    // ==========================================
 
     @Transactional(readOnly = true)
-    public List<AsuntoDTO> obtenerTodos() {
-        // Obtenemos las entidades, las convertimos a DTO con nuestro helper y las devolvemos como lista
+    public List<AsuntoDTO> getAll() {
         return asuntoRepository.findAll().stream()
-                .map(this::mapearA_DTO)
-                .toList(); // Si usas Java 16+, toList() es válido. Si es Java antiguo: collect(Collectors.toList())
+                .map(this::mapToDTO)
+                .toList();
     }
 
     @Transactional(readOnly = true)
-    public AsuntoDTO obtenerAsuntoPorId(Long id) {
+    public AsuntoDTO getById(Long id) {
         Asunto asunto = asuntoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Error: El asunto no existe o no tienes permisos para verlo"));
 
-        // Reutilizamos el helper
-        return mapearA_DTO(asunto);
+        return mapToDTO(asunto);
     }
 
     @Transactional
-    public AsuntoDTO guardarAsunto(AsuntoDTO dto) {
-        // 🔥 Usamos directamente dto.getClienteId() que Jackson nos mapeó
+    public AsuntoDTO save(AsuntoDTO dto) {
         if (dto.getClienteId() == null) {
             throw new RuntimeException("Error: El clienteId es obligatorio");
         }
 
-        Cliente cliente = clienteRepository.findById(dto.getClienteId())
+        Cliente client = clienteRepository.findById(dto.getClienteId())
                 .orElseThrow(() -> new RuntimeException("Error: El cliente no existe"));
 
-        TipoAsunto tipo = tipoAsuntoRepository.findById(dto.getTipoAsuntoId())
+        TipoAsunto type = tipoAsuntoRepository.findById(dto.getTipoAsuntoId())
                 .orElseThrow(() -> new RuntimeException("Error: El tipo de asunto no existe"));
 
-        Asunto nuevoAsunto = Asunto.builder()
+        Asunto newAsunto = Asunto.builder()
                 .actoImpugnar(dto.getActoImpugnar())
-                .cliente(cliente)
-                .tipoAsunto(tipo)
+                .cliente(client)
+                .tipoAsunto(type)
                 .camposDinamicos(dto.getCamposDinamicos())
                 .build();
 
-        Asunto asuntoGuardado = asuntoRepository.save(nuevoAsunto);
+        Asunto savedAsunto = asuntoRepository.save(newAsunto);
 
-        return mapearA_DTO(asuntoGuardado);
+        return mapToDTO(savedAsunto);
     }
 
     
     @Transactional
-    public AsuntoDTO actualizar(Long id, AsuntoDTO dtoActualizado) {
-        // 1. Buscamos el caso original
-        Asunto asuntoExistente = asuntoRepository.findById(id)
+    public AsuntoDTO update(Long id, AsuntoDTO updatedDto) {
+        Asunto existingAsunto = asuntoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Error: Asunto no encontrado"));
 
-        // 2. Actualizamos los campos si vienen en el JSON
-        if (dtoActualizado.getActoImpugnar() != null) {
-            asuntoExistente.setActoImpugnar(dtoActualizado.getActoImpugnar());
+        if (updatedDto.getActoImpugnar() != null) {
+            existingAsunto.setActoImpugnar(updatedDto.getActoImpugnar());
         }
-        
-        // Nota: Si pusiste "estado" en tu AsuntoDTO, agrégalo aquí también
-        // if (dtoActualizado.getEstado() != null) {
-        //     asuntoExistente.setEstado(dtoActualizado.getEstado());
-        // }
 
-        // 3. Actualizamos las relaciones (usando los IDs planos de la magia de Jackson)
-        if (dtoActualizado.getClienteId() != null) {
-            Cliente cliente = clienteRepository.findById(dtoActualizado.getClienteId())
+        if (updatedDto.getClienteId() != null) {
+            Cliente client = clienteRepository.findById(updatedDto.getClienteId())
                     .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
-            asuntoExistente.setCliente(cliente);
+            existingAsunto.setCliente(client);
         }
 
-        if (dtoActualizado.getTipoAsuntoId() != null) {
-            TipoAsunto tipo = tipoAsuntoRepository.findById(dtoActualizado.getTipoAsuntoId())
+        if (updatedDto.getTipoAsuntoId() != null) {
+            TipoAsunto type = tipoAsuntoRepository.findById(updatedDto.getTipoAsuntoId())
                     .orElseThrow(() -> new RuntimeException("Tipo de Asunto no encontrado"));
-            asuntoExistente.setTipoAsunto(tipo);
+            existingAsunto.setTipoAsunto(type);
         }
 
-        // 4. Guardamos y devolvemos convertido a DTO
-        Asunto asuntoGuardado = asuntoRepository.save(asuntoExistente);
-        return mapearA_DTO(asuntoGuardado);
+        Asunto savedAsunto = asuntoRepository.save(existingAsunto);
+        return mapToDTO(savedAsunto);
     }
 
     @Transactional
-    public boolean eliminarAsunto(Long id) {
+    public boolean delete(Long id) {
         Asunto asunto = asuntoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Asunto no encontrado"));
 
             if (asunto.getDocumentos() != null && !asunto.getDocumentos().isEmpty()) {
             for (Documento doc : asunto.getDocumentos()) {
                 try {
-                    // Usamos el servicio infalible que creaste hace rato
-                    storageService.borrarArchivo(doc.getRutaArchivo());
+                    storageService.deleteFile(doc.getRutaArchivo());
                 } catch (Exception e) {
-                    // Solo logueamos el error, pero dejamos que el proceso siga 
-                    // para no bloquear el borrado del caso por culpa de 1 archivo
                     log.error("Fallo al borrar archivo físico huérfano: {}", doc.getRutaArchivo());
                 }
             }
         }
 
-        // JPA automáticamente va y borra (o aplica Soft Delete) a las tareas y vencimientos
         asuntoRepository.delete(asunto);
 
         return true;
     }
 
     @Transactional
-    public void agregarParticipante(Long asuntoId, Long usuarioId) {
-        
-        // 1. Validamos que el expediente y el usuario existan
+    public void addParticipant(Long asuntoId, Long usuarioId) {
         Asunto asunto = asuntoRepository.findById(asuntoId)
                 .orElseThrow(() -> new RuntimeException("Expediente no encontrado con ID: " + asuntoId));
 
-        Usuario nuevoProyectista = usuarioRepository.findById(usuarioId)
+        Usuario newParticipant = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + usuarioId));
 
-        // 2. Revisamos que no esté ya asignado para evitar un error de llave duplicada
         if (asuntoUsuarioRepository.existsById_AsuntoIdAndId_UsuarioId(asuntoId, usuarioId)) {
             System.out.println("⚠️ El abogado ya estaba asignado a este expediente.");
-            return; // Salimos sin hacer nada
+            return;
         }
 
-        // 3. Creamos el ID Compuesto
         AsuntoUsuarioId compositeId = new AsuntoUsuarioId(asuntoId, usuarioId);
 
-        // 4. Armamos la entidad pivote usando tu hermoso Builder
-        AsuntoUsuario nuevaRelacion = AsuntoUsuario.builder()
+        AsuntoUsuario newRelation = AsuntoUsuario.builder()
                 .id(compositeId)
                 .asunto(asunto)
-                .usuario(nuevoProyectista)
-                .esResponsable(false) // O la lógica que decidas
+                .usuario(newParticipant)
+                .esResponsable(false)
                 .build();
 
-        // 5. ¡Guardamos directo en la tabla pivote!
-        asuntoUsuarioRepository.save(nuevaRelacion);
+        asuntoUsuarioRepository.save(newRelation);
         
-        System.out.println("✅ Proyectista " + nuevoProyectista.getNombre() + " asignado al expediente " + asunto.getId());
+        System.out.println("✅ Proyectista " + newParticipant.getNombre() + " asignado al expediente " + asunto.getId());
     }
 
-    public List<Usuario> obtenerEquipoLegal(Long asuntoId) {
+    public List<Usuario> getLegalTeam(Long asuntoId) {
         return asuntoUsuarioRepository.findById_AsuntoId(asuntoId).stream()
                 .map(AsuntoUsuario::getUsuario)
-                .toList(); // En Java 16+ puedes usar .toList() en lugar de Collectors.toList()
+                .toList();
     }
 
 }

@@ -13,27 +13,26 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/plantillas")
 @RequiredArgsConstructor
-@SecurityRequirement(name = "bearerAuth") // Obligamos a usar token
+@SecurityRequirement(name = "bearerAuth") 
 public class PlantillaController {
 
     private final PlantillaService plantillaService;
 
     @PreAuthorize("hasAuthority('ROLE_COORDINADOR')") 
     @PostMapping
-    public ResponseEntity<PlantillaDTO> crearPlantilla(@RequestBody PlantillaDTO dto) {
-        return ResponseEntity.ok(plantillaService.crearPlantilla(dto));
+    public ResponseEntity<PlantillaDTO> createPlantilla(@RequestBody PlantillaDTO dto) {
+        return ResponseEntity.ok(plantillaService.createPlantilla(dto));
     }
 
-    // 📖 Todos en el despacho pueden ver las plantillas (Coordinadores y Proyectistas)
     @PreAuthorize("hasAnyAuthority('ROLE_COORDINADOR', 'ROLE_PROYECTISTA')")
     @GetMapping
-    public ResponseEntity<List<PlantillaDTO>> obtenerPlantillas() {
-        return ResponseEntity.ok(plantillaService.obtenerPlantillasPorDespacho());
+    public ResponseEntity<List<PlantillaDTO>> getPlantillas() {
+        return ResponseEntity.ok(plantillaService.getPlantillasByDespacho());
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ROLE_COORDINADOR', 'ROLE_PROYECTISTA')")
-    public ResponseEntity<PlantillaDTO> obtenerPlantillaPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(plantillaService.obtenerPorId(id));
+    public ResponseEntity<PlantillaDTO> getPlantillaById(@PathVariable Long id) {
+        return ResponseEntity.ok(plantillaService.getById(id));
     }
 }

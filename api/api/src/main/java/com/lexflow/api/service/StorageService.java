@@ -30,60 +30,52 @@ public class StorageService {
     @Value("${cloud.aws.s3.bucket-name}")
     private String bucketName;
 
-    public String subirArchivo(MultipartFile archivo, Long asuntoId) {
-        // 1. Sacamos el ID del despacho logueado desde nuestra bóveda de seguridad
+    public String uploadFile(MultipartFile archivo, Long asuntoId) {
         Long despachoId = TenantContext.getCurrentTenant();
         
         if (despachoId == null) {
             throw new RuntimeException("Acceso denegado: No se detectó un despacho activo.");
         }
 
-        // 2. Construimos la ruta mágica (Ej. "despacho_5/asunto_10/demanda.pdf")
-        String rutaArchivo = String.format("despacho_%d/asunto_%d/%s", 
+        String minioPath = String.format("despacho_%d/asunto_%d/%s", 
                 despachoId, asuntoId, archivo.getOriginalFilename());
 
-        // 3. Preparamos el paquete para enviarlo a MinIO
         try {
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
-                    .key(rutaArchivo)
+                    .key(minioPath)
                     .contentType(archivo.getContentType())
                     .build();
 
-            // 4. Lo subimos directamente desde la memoria RAM, sin tocar el disco de tu PC
             s3Client.putObject(putObjectRequest, 
                     RequestBody.fromInputStream(archivo.getInputStream(), archivo.getSize()));
 
-            return rutaArchivo; // Devolvemos la ruta para que la guardes en tu base de datos (Ej. tabla Documentos)
+            return minioPath; 
             
         } catch (IOException e) {
             throw new RuntimeException("Fallo al intentar subir el archivo a MinIO", e);
         }
     }
 
-    public String generarUrlTemporalDeDescarga(String rutaArchivoEnMinio) {
+    public String generateTemporaryDownloadUrl(String rutaArchivoEnMinio) {
         
-        // 1. Decimos qué archivo queremos
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(rutaArchivoEnMinio)
                 .build();
 
-        // 2. Configuramos las reglas del "Boleto VIP" (ej. Válido por 15 minutos)
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofMinutes(15))
                 .getObjectRequest(getObjectRequest)
                 .build();
 
-        // 3. Firmamos criptográficamente la petición
         PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
 
-        // 4. Devolvemos la URL lista para que el navegador la use
         return presignedRequest.url().toString();
     }
 
 
-    public void borrarArchivo(String rutaArchivo) {
+    public void deleteFile(String rutaArchivo) {
         try {
             log.info("Intentando eliminar objeto del bucket: {} con llave: {}", bucketName, rutaArchivo);
             
@@ -96,7 +88,6 @@ public class StorageService {
             
             log.info("Archivo eliminado correctamente de MinIO: {}", rutaArchivo);
         } catch (Exception e) {
-            // Aquí lanzamos una excepción personalizada o logueamos el error crítico
             log.error("Error al eliminar archivo en MinIO: {}", rutaArchivo, e);
             throw new RuntimeException("No se pudo eliminar el archivo físico del storage", e);
         }

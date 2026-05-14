@@ -30,48 +30,48 @@ public class AsuntoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<AsuntoDTO>> listarAsuntos(){
-        List<AsuntoDTO> asuntos = asuntoService.obtenerTodos();
+    public ResponseEntity<List<AsuntoDTO>> getAllAsuntos(){
+        List<AsuntoDTO> asuntos = asuntoService.getAll();
         return ResponseEntity.ok(asuntos);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<AsuntoDTO> obtenerAsuntoPorId(@PathVariable Long id) {
-        AsuntoDTO asunto = asuntoService.obtenerAsuntoPorId(id);
+    public ResponseEntity<AsuntoDTO> getAsuntoById(@PathVariable Long id) {
+        AsuntoDTO asunto = asuntoService.getById(id);
         return ResponseEntity.ok(asunto);
     }
 
 
     @PostMapping
-    public ResponseEntity<AsuntoDTO> crearAsunto(@RequestBody AsuntoDTO dto) {
-        AsuntoDTO guardado = asuntoService.guardarAsunto(dto);
-        return ResponseEntity.ok(guardado);
+    public ResponseEntity<AsuntoDTO> createAsunto(@RequestBody AsuntoDTO dto) {
+        AsuntoDTO saved = asuntoService.save(dto);
+        return ResponseEntity.ok(saved);
     }
 
 
     @PutMapping("/{id}")
-    public ResponseEntity<AsuntoDTO> actualizarAsunto(@PathVariable Long id, @RequestBody AsuntoDTO dto) {
-        return ResponseEntity.ok(asuntoService.actualizar(id, dto));
+    public ResponseEntity<AsuntoDTO> updateAsunto(@PathVariable Long id, @RequestBody AsuntoDTO dto) {
+        return ResponseEntity.ok(asuntoService.update(id, dto));
     }
 
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarCliente(@PathVariable Long id) {
-        if (asuntoService.eliminarAsunto(id)) {
-            return ResponseEntity.noContent().build(); // Devuelve 204 No Content si fue exitoso
+    public ResponseEntity<Void> deleteAsunto(@PathVariable Long id) {
+        if (asuntoService.delete(id)) {
+            return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build(); 
     }
 
     @PostMapping("/{asuntoId}/participantes/{usuarioId}")
-public ResponseEntity<Void> agregarParticipante(@PathVariable Long asuntoId, @PathVariable Long usuarioId) {
-    asuntoService.agregarParticipante(asuntoId, usuarioId);
-    return ResponseEntity.ok().build();
-}
+    public ResponseEntity<Void> addParticipant(@PathVariable Long asuntoId, @PathVariable Long usuarioId) {
+        asuntoService.addParticipant(asuntoId, usuarioId);
+        return ResponseEntity.ok().build();
+    }
 
-@GetMapping("/{asuntoId}/participantes")
-    public ResponseEntity<List<Usuario>> obtenerEquipoLegal(@PathVariable Long asuntoId) {
-        return ResponseEntity.ok(asuntoService.obtenerEquipoLegal(asuntoId));
+    @GetMapping("/{asuntoId}/participantes")
+    public ResponseEntity<List<Usuario>> getLegalTeam(@PathVariable Long asuntoId) {
+        return ResponseEntity.ok(asuntoService.getLegalTeam(asuntoId));
     }
 
 

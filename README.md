@@ -17,21 +17,21 @@ El sistema es una plataforma de gestión jurídica estructurada en capas (Contro
 
 Tras una revisión profunda (línea por línea) del código fuente en los Servicios críticos y Filtros de Seguridad, se encontraron graves errores lógicos y de manejo de transacciones:
 
-1. **Riesgo en Transacciones Distribuidas (DocumentoService)**
+1. **Riesgo en Transacciones Distribuidas (DocumentoService)** - **[COMPLETADO]**
    - **Problema:** En el método `crearYSubirDocumento`, primero se sube el archivo a MinIO (`storageService.subirArchivo`) y *después* se guarda la entidad en PostgreSQL.
    - **Riesgo:** Si falla el guardado en la base de datos (por ejemplo, porque un campo es nulo o excede el tamaño), la transacción de base de datos hace *rollback*, pero el archivo físico ya fue subido a S3/MinIO, quedando "huérfano" para siempre, generando costos de almacenamiento basura.
    - **Solución:** Implementar un patrón de compensación (Saga/Outbox) o, como mínimo, capturar la excepción de la BD y mandar a borrar el archivo en S3 antes de lanzar el error hacia arriba.
 
-2. **Ausencia de Transaccionalidad Crítica (AuthService)**
+2. **Ausencia de Transaccionalidad Crítica (AuthService)** - **[COMPLETADO]**
    - **Problema:** El método `login(LoginRequest request)` no tiene la anotación `@Transactional`, pero realiza operaciones de escritura (`crearRefreshTokenParaUsuario` hace un `save()`).
    - **Riesgo:** Si hay un error de concurrencia o la base de datos se satura después de actualizar el *Refresh Token*, la base de datos puede quedar en un estado inconsistente. Todas las operaciones mixtas de lectura/escritura deben ser transaccionales.
 
-3. **Borrado en Cascada Manual y Riesgoso (AsuntoService)**
+3. **Borrado en Cascada Manual y Riesgoso (AsuntoService)** - **[COMPLETADO]**
    - **Problema:** El método `eliminarAsunto(Long id)` borra dependencias manualmente (vencimientos y tareas) antes de borrar el Asunto.
    - **Riesgo:** Esto es un anti-patrón de JPA. Obliga al desarrollador a recordar cada nueva tabla hija que se cree a futuro, provocando errores de restricción de llave foránea (Foreign Key) si se le olvida.
    - **Solución:** Delegar esto a JPA usando `CascadeType.REMOVE` o, idealmente, la anotación `@SQLDelete` a nivel de Entidad junto a propiedades `onDelete="CASCADE"` en la base de datos.
 
-4. **Excepciones Silenciadas en Seguridad (JwtAuthenticationFilter)**
+4. **Excepciones Silenciadas en Seguridad (JwtAuthenticationFilter)** - **[COMPLETADO]**
    - **Problema:** El filtro `doFilterInternal` atrapa las excepciones globales (try-catch genérico) y hace un simple `System.err.println()`, luego permite que la petición continúe hacia el controlador llamando a `filterChain.doFilter(request, response);`.
    - **Riesgo:** Si un token está malformado o un usuario intenta inyectar un payload corrupto, en lugar de recibir un HTTP 401/403 inmediato y detener el flujo, la petición sigue viajando vacía hacia los controladores, donde fallará con un NullPointerException y devolverá un HTTP 500.
 
@@ -65,7 +65,7 @@ Tras una revisión profunda (línea por línea) del código fuente en los Servic
 
 1. **Implementación de Pruebas Automatizadas (Testing)**
    - Iniciar suite con **JUnit 5** y **Mockito** para Servicios.
-2. **Estandarización del Idioma (Evitar Spanglish)**
+2. **Estandarización del Idioma (Evitar Spanglish)** - **[COMPLETADO]**
    - Migrar todo el código fuente al **inglés**.
 3. **Corrección de Dependencias (POM.xml)**
    - Ajustar `spring-boot-starter-parent` a la versión `3.4.1` (actualmente está en `4.0.4`, que no existe).
@@ -76,7 +76,7 @@ Tras una revisión profunda (línea por línea) del código fuente en los Servic
 
 ## 🛡️ Mejoras Necesarias: Seguridad (Prioridad Crítica)
 
-1. **Gestión de Secretos y Credenciales**
+1. **Gestión de Secretos y Credenciales** - **[COMPLETADO]**
    - **Problema:** Contraseñas de Base de Datos, S3, y la `SECRET_KEY` escritas en texto plano.
    - **Solución Inmediata:** Usar variables de entorno y rotar contraseñas comprometidas.
 
@@ -84,4 +84,4 @@ Tras una revisión profunda (línea por línea) del código fuente en los Servic
    - **Problema:** Existen controladores que utilizan `@CrossOrigin(origins = "*")` sobrescribiendo la seguridad global.
 
 3. **Vulnerabilidad XSS en Entrega de Tokens JWT**
-   - **Solución:** Configurar el backend para enviar el *Refresh Token* obligatoriamente a través de una cookie `HttpOnly` y `Secure`.
+   - **Solución:** Configurar el backend para enviar el *Refresh Token* obligatoriamente a través de una cookie `HttpOnly` y `Secure`.s de una cookie `HttpOnly` y `Secure`.

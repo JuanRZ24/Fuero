@@ -22,33 +22,31 @@ public class ClienteService {
 
 
 
-    public List<Cliente> obtenerTodos(){
+    public List<Cliente> getAll(){
         return clienteRepository.findAll();
     }
 
-    public Optional <Cliente> obtenerPorId(Long id){
+    public Optional <Cliente> getById(Long id){
         return clienteRepository.findById(id);
     }
 
-    public Cliente guardar(Cliente cliente){
+    public Cliente save(Cliente cliente){
         cliente.setDespachoId(TenantContext.getCurrentTenant());
         return clienteRepository.save(cliente);
     }
 
-    public Optional <Cliente> actualizar(Long id, Cliente clienteActualizado){
-        return clienteRepository.findById(id).map(clienteExistente -> {
+    public Optional <Cliente> update(Long id, Cliente updatedCliente){
+        return clienteRepository.findById(id).map(existingCliente -> {
             
-            
-            if (clienteActualizado.getNombre() != null){
-                clienteExistente.setNombre(clienteActualizado.getNombre());
+            if (updatedCliente.getNombre() != null){
+                existingCliente.setNombre(updatedCliente.getNombre());
             }
 
-            
-            return clienteRepository.save(clienteExistente); 
+            return clienteRepository.save(existingCliente); 
         });
     }
 
-    public boolean eliminar (Long id){
+    public boolean delete(Long id){
         clienteRepository.deleteById(id);
         return true;
     }

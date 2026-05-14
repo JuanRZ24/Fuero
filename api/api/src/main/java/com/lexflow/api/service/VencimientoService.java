@@ -21,10 +21,9 @@ public class VencimientoService {
     private final UsuarioRepository usuarioRepository;
 
     @Transactional
-    public VencimientoDTO.Response crear(VencimientoDTO.Request request) {
-        // Obtenemos el usuario logueado
+    public VencimientoDTO.Response create(VencimientoDTO.Request request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        Usuario usuario = usuarioRepository.findByEmail(email).orElseThrow();
+        Usuario user = usuarioRepository.findByEmail(email).orElseThrow();
 
         Asunto asunto = asuntoRepository.findById(request.getAsuntoId())
                 .orElseThrow(() -> new RuntimeException("Asunto no encontrado"));
@@ -34,38 +33,37 @@ public class VencimientoService {
             etapa = etapaRepository.findById(request.getEtapaId()).orElse(null);
         }
 
-        Vencimiento nuevo = Vencimiento.builder()
+        Vencimiento newVencimiento = Vencimiento.builder()
                 .fechaLimite(request.getFechaLimite())
                 .descripcion(request.getDescripcion())
                 .asunto(asunto)
                 .etapa(etapa)
-                .creadoPor(usuario)
+                .creadoPor(user)
                 .completado(false)
                 .build();
 
-        return mapToResponse(vencimientoRepository.save(nuevo));
+        return mapToResponse(vencimientoRepository.save(newVencimiento));
     }
 
-    public List<VencimientoDTO.Response> obtenerPendientesDashboard() {
-        return vencimientoRepository.findPendientesProximos().stream()
+    public List<VencimientoDTO.Response> getPendingDashboard() {
+        return vencimientoRepository.findUpcomingPending().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    public List<VencimientoDTO.Response> obtenerPorAsunto(Long asuntoId) {
+    public List<VencimientoDTO.Response> getByAsunto(Long asuntoId) {
         return vencimientoRepository.findByAsuntoIdOrderByFechaLimiteAsc(asuntoId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public void marcarComoCompletado(Long id) {
+    public void markAsCompleted(Long id) {
         Vencimiento vencimiento = vencimientoRepository.findById(id).orElseThrow();
         vencimiento.setCompletado(true);
         vencimientoRepository.save(vencimiento);
     }
 
-    // Mapeador manual para armar el DTO de respuesta con datos útiles para React
     private VencimientoDTO.Response mapToResponse(Vencimiento v) {
         return VencimientoDTO.Response.builder()
                 .id(v.getId())
