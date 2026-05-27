@@ -1,87 +1,305 @@
-# Lexflow Backend - Análisis de Sistema y Plan de Mejoras
+# JuriDesk / LexFlow — ERP Legal
 
-Este documento presenta un análisis de las funcionalidades actuales, la arquitectura y las áreas que requieren mejoras, tanto a nivel de nuevas características como de calidad de código y seguridad para el proyecto **Lexflow Backend**.
-
-## 🚀 Funcionalidades Actuales
-El sistema es una plataforma de gestión jurídica estructurada en capas (Controller, Service, Repository, Model, DTO) y cuenta con las siguientes características clave:
-1. **Seguridad y Autenticación:** Basada en JWT con soporte para Refresh Tokens.
-2. **Gestión de Asuntos y Clientes:** CRUD de expedientes legales y perfiles de clientes.
-3. **Seguimiento Procesal:** Etapas y movimientos procesales de cada caso.
-4. **Gestión de Tareas:** Asignaciones de tareas vinculadas a asuntos.
-5. **Gestión de Documentos:** Carga y administración de estados de documentos (S3/Google Drive).
-6. **Multi-Tenancy:** Separación de datos por despacho (`TenantId`), permitiendo su uso como SaaS.
+Sistema de gestión jurídica SaaS para despachos de abogados. Backend en **Java 21 + Spring Boot 3.x + PostgreSQL**.
 
 ---
 
-## 🔍 Auditoría de Código Avanzada (Transacciones y Lógica) (NUEVO)
+## Stack tecnológico
 
-Tras una revisión profunda (línea por línea) del código fuente en los Servicios críticos y Filtros de Seguridad, se encontraron graves errores lógicos y de manejo de transacciones:
-
-1. **Riesgo en Transacciones Distribuidas (DocumentoService)** - **[COMPLETADO]**
-   - **Problema:** En el método `crearYSubirDocumento`, primero se sube el archivo a MinIO (`storageService.subirArchivo`) y *después* se guarda la entidad en PostgreSQL.
-   - **Riesgo:** Si falla el guardado en la base de datos (por ejemplo, porque un campo es nulo o excede el tamaño), la transacción de base de datos hace *rollback*, pero el archivo físico ya fue subido a S3/MinIO, quedando "huérfano" para siempre, generando costos de almacenamiento basura.
-   - **Solución:** Implementar un patrón de compensación (Saga/Outbox) o, como mínimo, capturar la excepción de la BD y mandar a borrar el archivo en S3 antes de lanzar el error hacia arriba.
-
-2. **Ausencia de Transaccionalidad Crítica (AuthService)** - **[COMPLETADO]**
-   - **Problema:** El método `login(LoginRequest request)` no tiene la anotación `@Transactional`, pero realiza operaciones de escritura (`crearRefreshTokenParaUsuario` hace un `save()`).
-   - **Riesgo:** Si hay un error de concurrencia o la base de datos se satura después de actualizar el *Refresh Token*, la base de datos puede quedar en un estado inconsistente. Todas las operaciones mixtas de lectura/escritura deben ser transaccionales.
-
-3. **Borrado en Cascada Manual y Riesgoso (AsuntoService)** - **[COMPLETADO]**
-   - **Problema:** El método `eliminarAsunto(Long id)` borra dependencias manualmente (vencimientos y tareas) antes de borrar el Asunto.
-   - **Riesgo:** Esto es un anti-patrón de JPA. Obliga al desarrollador a recordar cada nueva tabla hija que se cree a futuro, provocando errores de restricción de llave foránea (Foreign Key) si se le olvida.
-   - **Solución:** Delegar esto a JPA usando `CascadeType.REMOVE` o, idealmente, la anotación `@SQLDelete` a nivel de Entidad junto a propiedades `onDelete="CASCADE"` en la base de datos.
-
-4. **Excepciones Silenciadas en Seguridad (JwtAuthenticationFilter)** - **[COMPLETADO]**
-   - **Problema:** El filtro `doFilterInternal` atrapa las excepciones globales (try-catch genérico) y hace un simple `System.err.println()`, luego permite que la petición continúe hacia el controlador llamando a `filterChain.doFilter(request, response);`.
-   - **Riesgo:** Si un token está malformado o un usuario intenta inyectar un payload corrupto, en lugar de recibir un HTTP 401/403 inmediato y detener el flujo, la petición sigue viajando vacía hacia los controladores, donde fallará con un NullPointerException y devolverá un HTTP 500.
-
-5. **Excepción de Lazy Initialization (AsuntoService)**
-   - **Problema:** El método `obtenerEquipoLegal` busca datos relacionales a través de `AsuntoUsuario::getUsuario` pero el método carece de `@Transactional(readOnly = true)`.
-   - **Riesgo:** Al no existir una transacción abierta, cuando JPA intente resolver el "Usuario" mapeado con `FetchType.LAZY` (proxy de Hibernate), lanzará un clásico `LazyInitializationException`, tirando abajo la petición.
+| Capa | Tecnología |
+|------|-----------|
+| Lenguaje | Java 21 |
+| Framework | Spring Boot 3.x |
+| Persistencia | Spring Data JPA + Hibernate 6 |
+| Base de datos | PostgreSQL 16 |
+| Seguridad | Spring Security + JWT (Auth0) |
+| Almacenamiento | AWS S3 / MinIO |
+| Documentación API | Springdoc OpenAPI (Swagger UI) |
+| Contenedores | Docker Compose |
 
 ---
 
-## 🏗️ Mejoras Necesarias: Arquitectura y Rendimiento JPA
+## Módulos implementados
 
-1. **Exposición Directa de Entidades (Fuga de Abstracción)**
-   - **Problema:** En varios Controladores y Servicios se están devolviendo directamente las Entidades JPA (`Cliente`, `Despacho`, `Usuario`, `Tarea`) en lugar de DTOs.
-   - **Riesgo:** Exponer entidades revela la base de datos al cliente y puede provocar ciclos infinitos de serialización JSON.
+| Módulo | Estado | Notas |
+|--------|--------|-------|
+| Autenticación / JWT | Funcional | Ver bugs críticos abajo |
+| Gestión de asuntos (expedientes) | Funcional | DTO incompleto |
+| Gestión de clientes | Funcional | — |
+| Gestión de documentos (S3) | Funcional | Path traversal pendiente |
+| Gestión de tareas | Funcional | Sin validaciones |
+| Etapas y movimientos procesales | Funcional | Sin orquestación de flujo |
+| Vencimientos y términos legales | Funcional | Sin alertas |
+| Plantillas de documentos | Funcional | — |
+| Gestión de usuarios y despachos | Funcional | Límites de plan no enforced |
+| Multi-tenancy por despacho | Funcional | Bien implementado con `@TenantId` |
+| Google Drive | Mock | No integrado |
 
-2. **Rendimiento de Base de Datos (Problema N+1 y FetchTypes)**
-   - **Problema:** Existen relaciones que carecen del parámetro explícito de fetch y pueden estar usando `EAGER` fetching por defecto o causando problemas de `N+1 select`.
+### Endpoints disponibles
 
-3. **Validación de Datos (DTOs)**
-   - **Problema:** Las peticiones (ej. `RegistroDespachoRequest`, `LoginRequest`) no usan `spring-boot-starter-validation` (`@NotBlank`, `@Email`, etc.).
+```
+POST   /api/auth/login
+POST   /api/auth/registro
 
-4. **Mapeo Automático de Entidades y DTOs**
-   - **Solución:** Implementar **MapStruct** para automatizar la conversión bidireccional.
+GET    /api/asuntos
+GET    /api/asuntos/{id}
+POST   /api/asuntos
+PUT    /api/asuntos/{id}
+DELETE /api/asuntos/{id}
+POST   /api/asuntos/{asuntoId}/participantes/{usuarioId}
+GET    /api/asuntos/{asuntoId}/participantes
 
-5. **Manejo Centralizado de Excepciones**
-   - **Solución:** Implementar un `@RestControllerAdvice` para devolver siempre un JSON estandarizado con el código HTTP correspondiente.
+GET    /api/clientes
+POST   /api/clientes
+PUT    /api/clientes/{id}
+DELETE /api/clientes/{id}
+
+GET    /api/documentos
+POST   /api/documentos          (multipart)
+GET    /api/documentos/{id}/descargar
+
+GET    /api/tareas
+POST   /api/tareas
+PUT    /api/tareas/{id}
+DELETE /api/tareas/{id}
+
+GET    /api/etapas
+POST   /api/etapas
+GET    /api/movimientos
+POST   /api/movimientos
+
+GET    /api/vencimientos
+POST   /api/vencimientos
+PUT    /api/vencimientos/{id}
+
+GET    /api/plantillas
+GET    /api/plantillas/{id}
+POST   /api/plantillas
+```
 
 ---
 
-## 💻 Mejoras Necesarias: Calidad de Código
+## Levantar el proyecto
 
-1. **Implementación de Pruebas Automatizadas (Testing)**
-   - Iniciar suite con **JUnit 5** y **Mockito** para Servicios.
-2. **Estandarización del Idioma (Evitar Spanglish)** - **[COMPLETADO]**
-   - Migrar todo el código fuente al **inglés**.
-3. **Corrección de Dependencias (POM.xml)**
-   - Ajustar `spring-boot-starter-parent` a la versión `3.4.1` (actualmente está en `4.0.4`, que no existe).
-4. **Sistema de Logs Estructurado**
-   - Utilizar `@Slf4j` y evitar `System.out.println()`.
+```bash
+# 1. Copiar variables de entorno
+cp .env.example .env   # editar con tus valores
+
+# 2. Levantar PostgreSQL
+docker-compose up -d
+
+# 3. Compilar y correr
+cd api/api
+./mvnw spring-boot:run
+```
+
+Swagger UI disponible en `http://localhost:8080/swagger-ui.html`
 
 ---
 
-## 🛡️ Mejoras Necesarias: Seguridad (Prioridad Crítica)
+## Lo que está bien (no tocar)
 
-1. **Gestión de Secretos y Credenciales** - **[COMPLETADO]**
-   - **Problema:** Contraseñas de Base de Datos, S3, y la `SECRET_KEY` escritas en texto plano.
-   - **Solución Inmediata:** Usar variables de entorno y rotar contraseñas comprometidas.
+- Arquitectura en capas limpia: Controller → Service → Repository → Model
+- **Multi-tenancy con `@TenantId` de Hibernate** — cada despacho está completamente aislado
+- Soft delete con `@SQLDelete` + `@SQLRestriction`
+- Cascada JPA en `Asunto` (`CascadeType.REMOVE`) — los hijos se eliminan automáticamente
+- **Patrón Saga compensado** en `DocumentoService` — si la BD falla después de subir a S3, el archivo se borra antes de lanzar el error
+- URLs presignadas S3 con expiración de 15 minutos
 
-2. **Configuración de CORS Insegura**
-   - **Problema:** Existen controladores que utilizan `@CrossOrigin(origins = "*")` sobrescribiendo la seguridad global.
+---
 
-3. **Vulnerabilidad XSS en Entrega de Tokens JWT**
-   - **Solución:** Configurar el backend para enviar el *Refresh Token* obligatoriamente a través de una cookie `HttpOnly` y `Secure`.s de una cookie `HttpOnly` y `Secure`.
+## Bugs críticos — arreglar antes de producción
+
+### Seguridad
+
+**1. Dual JWT — handlers de error muertos**
+`JwtAuthenticationFilter` importa `io.jsonwebtoken.*` (JJWT) pero `JwtService` usa `com.auth0.jwt.*`. Los bloques `catch(ExpiredJwtException)` nunca se ejecutan porque Auth0 lanza excepciones distintas. Un token expirado devuelve 401 vacío sin mensaje JSON.
+
+```
+Archivo: security/JwtAuthenticationFilter.java
+Solución: Eliminar dependencia JJWT del pom.xml, usar solo Auth0 JWT.
+```
+
+**2. JWT secret hardcodeado**
+
+```java
+// JwtService.java:15 — visible en el repositorio
+private static final String SECRET_KEY = "LexFlowSecretKeySuperSegura...";
+```
+
+Cualquiera que lea el repositorio puede forjar tokens válidos.
+
+```
+Solución: private static final String SECRET_KEY = System.getenv("JWT_SECRET");
+```
+
+**3. Path traversal en S3**
+El filename del usuario se usa directamente como key de S3 sin sanitizar. Un nombre como `../../etc/passwd` puede sobrescribir archivos fuera del bucket.
+
+```
+Archivo: service/StorageService.java
+Solución: String key = UUID.randomUUID() + "_" + filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+```
+
+**4. RefreshToken en Body JSON**
+Devolver el refresh token en el body JSON incita a guardarlo en `localStorage`, que es vulnerable a XSS.
+
+```
+Solución: Enviar refreshToken en cookie HttpOnly + Secure + SameSite=Strict.
+          Dejar solo el accessToken en el body.
+```
+
+**5. IP de base de datos hardcodeada**
+
+```properties
+# application.properties:4
+spring.datasource.url=jdbc:postgresql://192.168.1.200:5433/lexflow_db
+```
+
+```
+Solución: spring.datasource.url=jdbc:postgresql://${DB_HOST:localhost}:5433/lexflow_db
+```
+
+**6. `ddl-auto=update` en producción**
+Hibernate puede alterar el schema en caliente, con riesgo de pérdida de datos.
+
+```
+Solución: Migrar a Flyway o Liquibase.
+          En producción usar ddl-auto=validate.
+```
+
+---
+
+### Bugs funcionales
+
+**7. `AsuntoDTO` incompleto**
+El modelo `Asunto` tiene `estado`, `fechaLimiteLegal`, `etapaActual` y `creadoEn` pero el DTO no los mapea. Cualquier Kanban o filtro por estado en el frontend siempre recibe `null`.
+
+```
+Archivo: dto/AsuntoDTO.java + service/AsuntoService.java (método mapToDTO)
+Acción: Agregar los campos faltantes al DTO y mapearlos en el servicio.
+```
+
+**8. Orden incorrecto al subir documentos**
+`DocumentoService` sube el archivo a S3 **antes** de verificar que el asunto existe. Si el asunto no existe, el archivo queda huérfano en S3.
+
+```
+Archivo: service/DocumentoService.java
+Solución: Buscar y validar el asunto ANTES de llamar a storageService.uploadFile().
+```
+
+**9. Sin validación en DTOs**
+`LoginRequest`, `RegistroDespachoRequest` y todos los demás DTOs no tienen `@NotBlank`, `@Email` ni `@Size`. Las peticiones vacías o malformadas llegan hasta la base de datos.
+
+```
+Solución: Anotar campos en los DTOs + agregar @Valid en los parámetros de los controladores.
+```
+
+**10. Sin manejo global de excepciones**
+Todos los servicios usan `throw new RuntimeException("...")`. El cliente siempre recibe HTTP 500 aunque el error sea un 404 o un 400.
+
+```
+Solución: Crear excepciones de dominio (ResourceNotFoundException, ValidationException)
+          y un @RestControllerAdvice que las mapee al código HTTP correcto.
+```
+
+---
+
+### Calidad de código
+
+**11. Logging con `System.out.println`**
+```java
+// AsuntoService.java:178, 193
+System.out.println("⚠️ El abogado ya estaba asignado...");
+// DocumentoController.java:41
+e.printStackTrace();
+```
+Estos mensajes van a stdout en producción sin estructura ni niveles.
+
+```
+Solución: Agregar @Slf4j en todas las clases y usar log.warn(), log.error(), etc.
+```
+
+**12. Constructor manual en `AsuntoService`**
+`AsuntoService` tiene un constructor manual de 8 parámetros en lugar de `@RequiredArgsConstructor`.
+
+**13. Sin tests**
+El único archivo de test es un stub vacío (`ApiApplicationTests.java`). Cobertura: 0%.
+
+```
+Prioridad para tests: AuthService, DocumentoService (patrón Saga), AsuntoService.
+```
+
+---
+
+## Módulos que faltan para ser un ERP legal completo
+
+### Alta prioridad — sin esto no es un ERP
+
+| Módulo | Por qué importa |
+|--------|----------------|
+| **Timesheet / Control de horas** | Los despachos facturan por hora; sin esto no se pueden generar honorarios |
+| **Facturación** | Generar facturas a clientes basadas en horas trabajadas + gastos del caso |
+| **Notificaciones** | Alertas de vencimientos por email/SMS — los vencimientos existen en BD pero nadie se entera |
+| **Portal del cliente** | El cliente debería ver el estado de su caso sin llamar al despacho |
+| **Integración de pagos** | Si es SaaS necesita cobrar planes (Stripe, Conekta, MercadoPago) |
+
+### Media prioridad
+
+| Módulo | Por qué importa |
+|--------|----------------|
+| **Calendario / Agenda** | Audiencias, citas y plazos integrados en un calendario |
+| **Control de gastos** | Viáticos, honorarios de peritos, costas asociadas al caso |
+| **Conflict checking** | Verificar si un cliente nuevo tiene conflicto de interés con uno existente |
+| **Reportes analíticos** | Dashboard: casos abiertos, tasa de cierre, ingresos por abogado |
+| **2FA** | Obligatorio para datos jurídicos sensibles |
+
+### Baja prioridad — diferenciadores
+
+| Módulo | Por qué importa |
+|--------|----------------|
+| Google Drive real | Hoy es un mock — terminar la integración |
+| **Auditoría completa** | Log inmutable de quién vio o editó cada documento |
+| **BPM / Flujo de trabajo** | Automatizar: "cuando se sube la sentencia, notificar al cliente y crear tarea de apelación" |
+| **Base de conocimiento** | Jurisprudencia interna y precedentes del despacho |
+
+---
+
+## Plan de acción recomendado
+
+### Semana 1 — Seguridad
+1. Mover `JWT_SECRET` a variable de entorno
+2. Eliminar JJWT del `pom.xml`, dejar solo Auth0 JWT
+3. Sanitizar filenames con UUID en `StorageService`
+4. Mover `refreshToken` a cookie `HttpOnly`
+5. Cambiar IP hardcodeada de BD a variable de entorno
+
+### Semana 2 — Estabilidad
+1. Completar `AsuntoDTO` con los campos faltantes
+2. Agregar `@NotBlank`, `@Email`, `@Size` en todos los DTOs + `@Valid` en controladores
+3. Crear `GlobalExceptionHandler` con `@RestControllerAdvice`
+4. Reemplazar `System.out.println` por `@Slf4j` en todas las clases
+5. Reordenar `DocumentoService`: validar asunto antes de subir a S3
+6. Migrar a Flyway para migraciones versionadas
+
+### Semana 3+ — Features
+1. Notificaciones de vencimientos (Spring Scheduler como punto de partida)
+2. Timesheet básico vinculado a asuntos y usuarios
+3. Tests unitarios para `AuthService`, `DocumentoService` y `AsuntoService`
+
+---
+
+## Estructura del proyecto
+
+```
+JuriDesk/
+├── api/api/src/main/java/com/lexflow/api/
+│   ├── controller/     (13 controladores REST)
+│   ├── service/        (15 servicios de negocio)
+│   ├── model/          (20 entidades JPA)
+│   ├── dto/            (17 DTOs)
+│   ├── repository/     (15 repositorios JPA)
+│   └── security/       (JWT, filtros, multi-tenancy)
+├── docker-compose.yml  (PostgreSQL 16)
+└── .env                (variables de entorno — no commitear)
+```
