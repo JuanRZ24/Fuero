@@ -1,11 +1,14 @@
 package com.lexflow.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.lexflow.api.model.EtapaProcesal;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 @Data
@@ -34,5 +37,15 @@ public class AsuntoDTO {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private Long tipoAsuntoId;
 
+    private String estado;
+
+    private Long etapaProcesalId;
+    
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private EtapaProcesalDTO etapaActual;
+
+ 
     private Map<String, Object> camposDinamicos;
+
+
 }

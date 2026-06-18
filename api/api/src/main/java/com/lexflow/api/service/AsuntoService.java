@@ -7,17 +7,20 @@ import org.springframework.stereotype.Service;
 
 import com.lexflow.api.dto.AsuntoDTO;
 import com.lexflow.api.dto.ClienteDTO;
+import com.lexflow.api.dto.EtapaProcesalDTO;
 import com.lexflow.api.dto.TipoAsuntoDTO;
 import com.lexflow.api.model.Asunto;
 import com.lexflow.api.model.AsuntoUsuario;
 import com.lexflow.api.model.AsuntoUsuarioId;
 import com.lexflow.api.model.Cliente;
 import com.lexflow.api.model.Documento;
+import com.lexflow.api.model.EtapaProcesal;
 import com.lexflow.api.model.TipoAsunto;
 import com.lexflow.api.model.Usuario;
 import com.lexflow.api.repository.AsuntoRepository;
 import com.lexflow.api.repository.AsuntoUsuarioRepository;
 import com.lexflow.api.repository.ClienteRepository;
+import com.lexflow.api.repository.EtapaProcesalRepository;
 import com.lexflow.api.repository.TareaRepository;
 import com.lexflow.api.repository.TipoAsuntoRepository;
 import com.lexflow.api.repository.UsuarioRepository;
@@ -31,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AsuntoService {
     
 
+    private final EtapaProcesalRepository etapaProcesalRepository;
     private final AsuntoRepository asuntoRepository;
     private final ClienteRepository clienteRepository;
     private final UsuarioRepository usuarioRepository;
@@ -40,13 +44,14 @@ public class AsuntoService {
     private final TareaRepository tareaRepository;
     private final StorageService storageService;
 
-    public AsuntoService (AsuntoRepository asuntoRepository,TareaRepository tareaRepository, ClienteRepository clienteRepository,VencimientoRepository vencimientoRepository, TipoAsuntoRepository tipoAsuntoRepository, UsuarioRepository usuarioRepository, AsuntoUsuarioRepository asuntoUsuarioRepository,StorageService storageService){
+    public AsuntoService (AsuntoRepository asuntoRepository,TareaRepository tareaRepository, ClienteRepository clienteRepository,VencimientoRepository vencimientoRepository, TipoAsuntoRepository tipoAsuntoRepository, UsuarioRepository usuarioRepository, AsuntoUsuarioRepository asuntoUsuarioRepository,StorageService storageService, EtapaProcesalRepository etapaProcesalRepository){
         this.asuntoRepository = asuntoRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
         this.vencimientoRepository = vencimientoRepository;
         this.tipoAsuntoRepository = tipoAsuntoRepository;
         this.asuntoUsuarioRepository = asuntoUsuarioRepository;
+        this.etapaProcesalRepository = etapaProcesalRepository;
         this.tareaRepository = tareaRepository;
         this.storageService = storageService;
     }
@@ -70,12 +75,22 @@ public class AsuntoService {
                     .nombre(asunto.getTipoAsunto().getNombre())
                     .build();
         }
+        EtapaProcesalDTO etapaDTO = null;
+if (asunto.getEtapaActual() != null) {
+    etapaDTO = EtapaProcesalDTO.builder()
+            .id(asunto.getEtapaActual().getId())
+            .nombre(asunto.getEtapaActual().getNombre())
+            .build();
+}
 
         return AsuntoDTO.builder()
                 .id(asunto.getId())
                 .actoImpugnar(asunto.getActoImpugnar())
                 .cliente(clienteDTO)
                 .tipoAsunto(typeDTO)
+                .estado(asunto.getEstado())
+                .etapaActual(etapaDTO)
+                .etapaProcesalId(asunto.getEtapaActual() != null ? asunto.getEtapaActual().getId() : null)
                 .camposDinamicos(asunto.getCamposDinamicos())
                 .build();
     }
@@ -107,13 +122,19 @@ public class AsuntoService {
 
         TipoAsunto type = tipoAsuntoRepository.findById(dto.getTipoAsuntoId())
                 .orElseThrow(() -> new RuntimeException("Error: El tipo de asunto no existe"));
+        
+        EtapaProcesal etapa = etapaProcesalRepository.findById(dto.getEtapaProcesalId())
+        .orElseThrow(() -> new RuntimeException("Error: La etapa procesal no existe"));
 
-        Asunto newAsunto = Asunto.builder()
-                .actoImpugnar(dto.getActoImpugnar())
-                .cliente(client)
-                .tipoAsunto(type)
-                .camposDinamicos(dto.getCamposDinamicos())
-                .build();
+Asunto newAsunto = Asunto.builder()
+        .actoImpugnar(dto.getActoImpugnar())
+        .cliente(client)
+        .tipoAsunto(type)
+        .camposDinamicos(dto.getCamposDinamicos())
+        .etapaActual(etapa)
+        .build();        
+
+       
 
         Asunto savedAsunto = asuntoRepository.save(newAsunto);
 
