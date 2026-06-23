@@ -6,6 +6,8 @@ import lombok.*;
 
 import java.time.LocalDate;
 
+import org.hibernate.annotations.TenantId;
+
 @Entity
 @Table(name = "vencimientos")
 @Data
@@ -17,6 +19,10 @@ public class Vencimiento {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @TenantId
+    @Column(name = "despacho_id")
+    private Long despachoId;
 
     @Column(nullable = false)
     private LocalDate fechaLimite;

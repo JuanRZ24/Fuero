@@ -3,8 +3,10 @@ package com.lexflow.api.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.TenantId;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "historial_estados_documento")
@@ -25,6 +27,10 @@ public class HistorialEstadoDocumento {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
+
+    @TenantId
+    @Column(name = "despacho_id", nullable = false, updatable = false)
+    private Long  despachoId;   // usa el MISMO tipo que el @TenantId de Asunto
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_nuevo", nullable = false)

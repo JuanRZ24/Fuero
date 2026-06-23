@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.annotations.TenantId;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -30,6 +31,10 @@ public class Tarea {
     @JoinColumn(name = "asunto_id", nullable = false)
     @JsonIgnore
     private Asunto asunto;
+
+    @TenantId
+    @Column(name = "despacho_id")
+    private Long despachoId;
 
     // Relación con el Usuario (a quién se le asigna)
     @ManyToOne(fetch = FetchType.LAZY)
