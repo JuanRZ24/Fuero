@@ -36,7 +36,7 @@ Hay que cerrar los BLOQUEANTES antes de meter un solo expediente real.
 anotadas con `@TenantId`. El tenant **se resuelve del token en servidor, no de input**
 → bien, no es manipulable por header/body. El claim va firmado en el JWT.
 
-### [BLOQUEANTE] Entidades sensibles sin `@TenantId` → fuga entre despachos
+### [RESUELTO] Entidades sensibles sin `@TenantId` → fuga entre despachos
 `Tarea` (`model/Tarea.java`) y `Vencimiento` (`model/Vencimiento.java`) **no tienen
 `@TenantId`**. Como el filtro de Hibernate solo aplica a entidades anotadas, cualquier
 query directa a sus repositorios devuelve filas de **todos** los despachos.
@@ -44,7 +44,7 @@ query directa a sus repositorios devuelve filas de **todos** los despachos.
 - `TareaService.getTarea(id)` (`:39`) → `findById` lee cualquier tarea por ID.
 - **Fix:** añadir `@TenantId @Column(name="despacho_id") private Long despachoId;` a `Tarea` y `Vencimiento` (igual que `Asunto`). Requiere migración: poblar `despacho_id` en filas existentes a partir del `asunto` padre antes de hacerlo `NOT NULL`.
 
-### [BLOQUEANTE] Query que ignora el tenant en el dashboard de vencimientos
+### [RESUELTO] Query que ignora el tenant en el dashboard de vencimientos
 `VencimientoRepository.java:17`: `@Query("SELECT v FROM Vencimiento v WHERE v.completado = false ...")`
 → `VencimientoService.getPendingDashboard()` (`service/VencimientoService.java:48`)
 devuelve **vencimientos + nombres de cliente de todos los despachos** en el panel
@@ -59,7 +59,7 @@ deseable, pero:
 - En `AsuntoService.save()` (`service/AsuntoService.java:123-127`) se buscan `tipoAsunto`/`etapa` por ID sin filtro → un despacho podría asociar la etapa de otro. Hoy inocuo porque son globales; si algún día se vuelven per-despacho, se convierte en fuga.
 - **Fix (decisión):** decidir explícitamente si los catálogos son globales (documéntalo y bloquea su edición por usuarios) o per-despacho (añade `@TenantId`). Recomendado: globales para v1.0.
 
-### [IMPORTANTE] Lecturas por ID sin verificar pertenencia en relaciones
+### [RESUELTO] Lecturas por ID sin verificar pertenencia en relaciones
 `AsuntoService.getLegalTeam(asuntoId)` (`:217`) consulta `AsuntoUsuario` (sin `@TenantId`)
 directamente por `asuntoId`, sin confirmar primero que el asunto es del tenant → con un ID
 ajeno revela el equipo legal de otro despacho. Mismo patrón en `HistorialEstadoDocumento`.
